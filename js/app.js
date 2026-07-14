@@ -52,6 +52,7 @@ class NotesApp {
       noteLocation:    document.getElementById('note-location'),
       appTitle:        document.querySelector('.app-title'),
       btnPickDir:      document.getElementById('btn-pick-dir'),
+      uploadFile:      document.getElementById('upload-file'),
     };
   }
 
@@ -85,7 +86,8 @@ class NotesApp {
   /** 目录就绪后的统一初始化 */
   _onDirectoryReady() {
     this.els.appTitle.textContent = `📝 ${this.store.rootName}`;
-    this.els.btnPickDir.textContent = '📂 切换目录';
+    this.els.btnPickDir.textContent = '📥';
+    this.els.btnPickDir.title = '上传笔记文件到当前目录';
     this.render();
     // 自动展开一级目录
     if (this.expandedDirs.size === 0) {
@@ -348,6 +350,66 @@ class NotesApp {
     }
   }
 
+  /** 上传 .md 文件到当前目录 */
+  async handleUpload(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    let uploaded = 0;
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const safeName = sanitizeFilename(file.name.replace(/\.md$|\.markdown$|\.txt$/i, '')) + '.md';
+        const dirHandle = this.store.rootHandle;
+
+        // 检查同名文件
+        let finalName = safeName;
+        let counter = 1;
+        while (true) {
+          try {
+            await dirHandle.getFileHandle(finalName, { create: false });
+            finalName = safeName.replace(/\.md$/, '') + ` (${counter}).md`;
+            counter++;
+          } catch { break; }
+        }
+
+        // 确保上传的文件有 frontmatter
+        const parsed = parseFrontmatter(text);
+        let content;
+        if (text.startsWith('---')) {
+          // 已有 frontmatter，更新日期
+          const meta = { tags: parsed.tags, pinned: parsed.pinned,
+            created_at: parsed.created_at || new Date().toISOString() };
+          content = stringifyFrontmatter(meta, parsed.body);
+        } else {
+          // 纯文本，添加 frontmatter
+          content = stringifyFrontmatter(
+            { tags: [], pinned: false, created_at: new Date().toISOString() }, text);
+        }
+
+        const fh = await dirHandle.getFileHandle(finalName, { create: true });
+        const w = await fh.createWritable();
+        await w.write(content);
+        await w.close();
+        uploaded++;
+      } catch (err) {
+        console.error('上传失败:', file.name, err);
+      }
+    }
+
+    await this.store.refresh();
+    this.renderTree();
+    this.showToast(`📥 成功上传 ${uploaded} 篇笔记`, 'success');
+
+    // 如果还没有选中笔记，自动选中第一篇
+    if (!this.currentPath) {
+      const notes = this.store.collectAllNotes();
+      if (notes.length > 0) await this.selectNote(notes[0]);
+    }
+
+    e.target.value = ''; // 允许重复上传同一文件
+  }
+
   async deleteEntry(path) {
     const node = this.store.findNode(path);
     if (!node) return;
@@ -587,9 +649,10 @@ class NotesApp {
     menu.querySelector('[data-action="rename"]').style.display = (isDir || isNote) ? '' : 'none';
     menu.querySelector('[data-action="delete"]').style.display = (isDir || isNote) ? '' : 'none';
     menu.querySelector('[data-action="move"]').style.display = isNote ? '' : 'none';
+    menu.querySelector('[data-action="switch-dir"]').style.display = isRoot ? '' : 'none';
 
     const x = Math.min(e.clientX, window.innerWidth - 200);
-    const y = Math.min(e.clientY, window.innerHeight - 240);
+    const y = Math.min(e.clientY, window.innerHeight - 260);
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
     menu.style.display = 'block';
@@ -619,6 +682,9 @@ class NotesApp {
         break;
       case 'move':
         await this.moveNote(path);
+        break;
+      case 'switch-dir':
+        await this.pickDirectory();
         break;
     }
   }
@@ -737,9 +803,20 @@ class NotesApp {
     this.els.overlay.addEventListener('click', () => this.closeSidebar());
 
     if (this.els.btnPickDir) {
-      this.els.btnPickDir.addEventListener('click', () => this.pickDirectory());
+      this.els.btnPickDir.addEventListener('click', () => {
+        if (this.store.rootHandle) {
+          document.getElementById('upload-file').click();
+        } else {
+          this.pickDirectory();
+        }
+      });
     }
     // 初始状态下的按钮可能通过 innerHTML 重建，在 _showPickDirectory 里重新绑定
+
+    // 上传笔记文件
+    if (this.els.uploadFile) {
+      this.els.uploadFile.addEventListener('change', (e) => this.handleUpload(e));
+    }
 
     this.els.viewToggles.addEventListener('click', (e) => {
       const btn = e.target.closest('.view-btn');
