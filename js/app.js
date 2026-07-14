@@ -175,7 +175,6 @@ class NotesApp {
     }
     document.getElementById('upload-file').click();
   }
-  }
 
   /* ================================================================
      主题
