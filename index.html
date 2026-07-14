@@ -15,16 +15,12 @@
     <!-- 侧边栏 -->
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
-        <h1 class="app-title">📝 我的笔记</h1>
+        <h1 class="app-title">📝 选择笔记目录</h1>
         <div class="sidebar-header-btns">
-          <button id="btn-new-note" class="btn btn-primary btn-sm" title="新建笔记">+</button>
-          <button id="btn-new-folder" class="btn btn-sm" title="新建文件夹">📁</button>
+          <button id="btn-pick-dir" class="btn btn-sm btn-folder" title="选择/切换笔记目录">📂</button>
+          <button id="btn-new-note" class="btn btn-primary btn-sm" title="在根目录新建笔记">+</button>
+          <button id="btn-new-folder" class="btn btn-sm" title="在根目录新建文件夹">📁</button>
         </div>
-      </div>
-
-      <div class="sidebar-mode">
-        <span id="mode-indicator" class="mode-indicator" title="">💾 本地存储</span>
-        <button id="btn-open-folder" class="btn btn-sm btn-folder" title="打开文件夹以使用文件系统存储">📂 打开文件夹</button>
       </div>
 
       <div class="sidebar-search">
@@ -35,8 +31,8 @@
       <!-- 目录树 -->
       <div id="tree-container" class="tree-container">
         <div class="tree-empty">
-          <p>📭 暂无笔记</p>
-          <p class="sub">右键点击空白处新建笔记或文件夹</p>
+          <p>📂 请先选择笔记目录</p>
+          <p class="sub">点击上方 📂 按钮，选择 Git 仓库中存放笔记的文件夹</p>
         </div>
       </div>
 
@@ -44,8 +40,6 @@
         <button id="btn-theme" class="btn btn-icon" title="切换深色/浅色模式">🌙</button>
         <span class="note-count" id="note-count">0 篇笔记</span>
       </div>
-
-      <input type="file" id="import-file" accept=".json" hidden>
     </aside>
 
     <!-- 右键菜单 -->
@@ -56,9 +50,6 @@
       <div class="ctx-item" data-action="rename">✏️ 重命名</div>
       <div class="ctx-item" data-action="move">📦 移动到…</div>
       <div class="ctx-separator"></div>
-      <div class="ctx-item" data-action="export-json">📤 导出 JSON</div>
-      <div class="ctx-item" data-action="import-json">📥 导入 JSON</div>
-      <div class="ctx-separator"></div>
       <div class="ctx-item ctx-danger" data-action="delete">🗑️ 删除</div>
     </div>
 
@@ -67,22 +58,19 @@
 
     <!-- 主内容区 -->
     <main id="main-content" class="main-content">
-      <!-- 空状态：未选中笔记 -->
+      <!-- 初始引导 / 空状态 -->
       <div id="empty-state" class="empty-state">
-        <div class="empty-state-icon">📝</div>
+        <div class="empty-state-icon">📂</div>
         <h2>欢迎使用笔记管理</h2>
-        <p>选择左侧笔记开始编辑，或创建一篇新笔记</p>
-        <button id="btn-empty-new" class="btn btn-primary btn-lg">+ 新建笔记</button>
+        <p>点击左上角 📂 按钮选择 Git 仓库中的笔记文件夹<br>目录结构即为分类，笔记保存为 .md 文件</p>
         <div class="shortcut-hints">
+          <span>需要 Chrome / Edge 浏览器</span>
           <span><kbd>Ctrl</kbd> + <kbd>N</kbd> 新建笔记</span>
-          <span><kbd>Ctrl</kbd> + <kbd>S</kbd> 保存</span>
-          <span>右键目录树查看更多操作</span>
         </div>
       </div>
 
       <!-- 编辑器区域 -->
       <div id="editor-container" class="editor-container" style="display:none">
-        <!-- 工具栏 -->
         <div class="editor-toolbar">
           <div class="toolbar-left">
             <span id="note-location" class="note-location" title="笔记所在目录"></span>
@@ -94,15 +82,12 @@
               <button class="view-btn" data-view="preview">👁️ 预览</button>
               <button class="view-btn" data-view="split">📐 分屏</button>
             </div>
-            <button id="btn-pin" class="btn btn-icon" title="置顶">📍</button>
             <button id="btn-delete-note" class="btn btn-icon btn-danger" title="删除笔记">🗑️</button>
           </div>
         </div>
 
-        <!-- 笔记标题 -->
         <input type="text" id="note-title" class="note-title-input" placeholder="输入笔记标题..." autocomplete="off">
 
-        <!-- 编辑 & 预览区域 -->
         <div id="editor-area" class="editor-area mode-edit">
           <div id="edit-pane" class="edit-pane">
             <textarea id="note-content" class="note-content-input" placeholder="开始写笔记...&#10;&#10;支持 Markdown 语法"></textarea>
@@ -112,7 +97,6 @@
           </div>
         </div>
 
-        <!-- 底部状态栏 -->
         <div class="editor-footer">
           <span id="char-count">0 字符</span>
           <span id="save-status" class="save-status">✅ 已保存</span>
@@ -120,7 +104,6 @@
       </div>
     </main>
 
-    <!-- Toast 通知容器 -->
     <div id="toast-container" class="toast-container"></div>
   </div>
 
