@@ -86,8 +86,10 @@ class NotesApp {
   /** 目录就绪后的统一初始化 */
   _onDirectoryReady() {
     this.els.appTitle.textContent = `📝 ${this.store.rootName}`;
-    this.els.btnUpload.textContent = '📥 上传';
-    this.els.btnUpload.title = '上传 .md 笔记文件到当前目录';
+    if (this.els.btnUpload) {
+      this.els.btnUpload.textContent = '📥 上传';
+      this.els.btnUpload.title = '上传 .md 笔记文件到当前目录';
+    }
     this.render();
     // 自动展开一级目录
     if (this.expandedDirs.size === 0) {
