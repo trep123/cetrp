@@ -51,7 +51,7 @@ class NotesApp {
       contextMenu:     document.getElementById('context-menu'),
       noteLocation:    document.getElementById('note-location'),
       appTitle:        document.querySelector('.app-title'),
-      btnPickDir:      document.getElementById('btn-pick-dir'),
+      btnUpload:       document.getElementById('btn-upload'),
       uploadFile:      document.getElementById('upload-file'),
     };
   }
@@ -86,8 +86,8 @@ class NotesApp {
   /** 目录就绪后的统一初始化 */
   _onDirectoryReady() {
     this.els.appTitle.textContent = `📝 ${this.store.rootName}`;
-    this.els.btnPickDir.textContent = '📥';
-    this.els.btnPickDir.title = '上传笔记文件到当前目录';
+    this.els.btnUpload.textContent = '📥 上传';
+    this.els.btnUpload.title = '上传 .md 笔记文件到当前目录';
     this.render();
     // 自动展开一级目录
     if (this.expandedDirs.size === 0) {
@@ -102,24 +102,24 @@ class NotesApp {
     }
   }
 
-  /** 显示"选择目录"引导页 */
+  /** 显示上传引导页 */
   _showPickDirectory() {
     this.els.emptyState.innerHTML = `
-      <div class="empty-state-icon">📂</div>
-      <h2>选择笔记目录</h2>
-      <p>选择一个文件夹来管理 Markdown 笔记<br>目录结构即分类，笔记直接保存为 .md 文件</p>
-      <button id="btn-pick-dir-main" class="btn btn-primary btn-lg">📂 选择笔记目录</button>
+      <div class="empty-state-icon">📥</div>
+      <h2>上传笔记文件</h2>
+      <p>上传 .md 文件开始管理笔记<br>首次使用会提示选择存储目录</p>
+      <button id="btn-upload-main" class="btn btn-primary btn-lg">📥 上传笔记 .md</button>
       <div class="shortcut-hints">
         <span>需要 Chrome / Edge 浏览器</span>
+        <span><kbd>Ctrl</kbd> + <kbd>N</kbd> 新建笔记</span>
       </div>`;
-    // 重新绑定（因为 innerHTML 替换了按钮，且与侧边栏按钮 ID 不同）
-    document.getElementById('btn-pick-dir-main')?.addEventListener('click', () => this.pickDirectory());
+    document.getElementById('btn-upload-main')?.addEventListener('click', () => this.triggerUpload());
     this.els.emptyState.style.display = '';
     this.els.editorContainer.style.display = 'none';
     this.els.treeContainer.innerHTML = `
       <div class="tree-empty">
-        <p>📂 请先选择笔记目录</p>
-        <p class="sub">点击上方 📂 按钮选择文件夹</p>
+        <p>📥 点击上方按钮上传笔记</p>
+        <p class="sub">支持 .md / .markdown / .txt 文件</p>
       </div>`;
   }
 
@@ -152,6 +152,27 @@ class NotesApp {
         this.showToast('❌ 无法打开目录', 'error');
       }
     }
+  }
+
+  /** 上传笔记——若未选目录则先弹出选择，然后触发文件选择器 */
+  async triggerUpload() {
+    if (!this.store.rootHandle) {
+      try {
+        await this.store.pickDirectory();
+        this.expandedDirs.clear();
+        this.currentPath = null;
+        this.currentData = null;
+        this._onDirectoryReady();
+        this._savePrefs();
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          this.showToast('❌ 需要选择存储目录后才能上传', 'error');
+        }
+        return;
+      }
+    }
+    document.getElementById('upload-file').click();
+  }
   }
 
   /* ================================================================
@@ -802,16 +823,9 @@ class NotesApp {
     });
     this.els.overlay.addEventListener('click', () => this.closeSidebar());
 
-    if (this.els.btnPickDir) {
-      this.els.btnPickDir.addEventListener('click', () => {
-        if (this.store.rootHandle) {
-          document.getElementById('upload-file').click();
-        } else {
-          this.pickDirectory();
-        }
-      });
+    if (this.els.btnUpload) {
+      this.els.btnUpload.addEventListener('click', () => this.triggerUpload());
     }
-    // 初始状态下的按钮可能通过 innerHTML 重建，在 _showPickDirectory 里重新绑定
 
     // 上传笔记文件
     if (this.els.uploadFile) {
