@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📝 个人笔记管理</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- 移动端侧边栏遮罩 -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <!-- 侧边栏 -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="app-title">📝 我的笔记</h1>
+        <button id="btn-new-note" class="btn btn-primary">
+          <span class="icon">+</span> 新建笔记
+        </button>
+      </div>
+
+      <div class="sidebar-search">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="search-input" placeholder="搜索笔记..." autocomplete="off">
+      </div>
+
+      <div class="sidebar-filters">
+        <select id="category-filter" class="select-sm">
+          <option value="all">📁 全部分类</option>
+          <option value="工作">💼 工作</option>
+          <option value="学习">📚 学习</option>
+          <option value="生活">🏠 生活</option>
+          <option value="项目">🚀 项目</option>
+          <option value="其他">📋 其他</option>
+        </select>
+        <select id="sort-select" class="select-sm">
+          <option value="updated">🕐 最近修改</option>
+          <option value="created">📅 最近创建</option>
+          <option value="title">🔤 标题 A-Z</option>
+        </select>
+      </div>
+
+      <div id="note-list" class="note-list">
+        <div class="note-list-empty">
+          <p>✨ 还没有笔记</p>
+          <p class="sub">点击「+ 新建笔记」开始记录</p>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <button id="btn-theme" class="btn btn-icon" title="切换深色/浅色模式">🌙</button>
+        <button id="btn-export" class="btn btn-icon" title="导出笔记为 JSON">📤</button>
+        <button id="btn-import" class="btn btn-icon" title="从 JSON 导入笔记">📥</button>
+        <span class="note-count" id="note-count">0 篇笔记</span>
+      </div>
+
+      <input type="file" id="import-file" accept=".json" hidden>
+    </aside>
+
+    <!-- 移动端菜单按钮 -->
+    <button id="btn-menu" class="btn btn-icon mobile-menu-btn" title="菜单">☰</button>
+
+    <!-- 主内容区 -->
+    <main id="main-content" class="main-content">
+      <!-- 空状态：未选中笔记 -->
+      <div id="empty-state" class="empty-state">
+        <div class="empty-state-icon">📝</div>
+        <h2>欢迎使用笔记管理</h2>
+        <p>选择左侧笔记开始编辑，或创建一篇新笔记</p>
+        <button id="btn-empty-new" class="btn btn-primary btn-lg">+ 新建笔记</button>
+        <div class="shortcut-hints">
+          <span><kbd>Ctrl</kbd> + <kbd>N</kbd> 新建笔记</span>
+          <span><kbd>Ctrl</kbd> + <kbd>S</kbd> 保存笔记</span>
+        </div>
+      </div>
+
+      <!-- 编辑器区域：选中笔记后显示 -->
+      <div id="editor-container" class="editor-container" style="display:none">
+        <!-- 工具栏 -->
+        <div class="editor-toolbar">
+          <div class="toolbar-left">
+            <select id="note-category" class="select-sm">
+              <option value="">📁 选择分类</option>
+              <option value="工作">💼 工作</option>
+              <option value="学习">📚 学习</option>
+              <option value="生活">🏠 生活</option>
+              <option value="项目">🚀 项目</option>
+              <option value="其他">📋 其他</option>
+            </select>
+            <input type="text" id="note-tags" class="tags-input" placeholder="标签，逗号分隔" autocomplete="off">
+          </div>
+          <div class="toolbar-right">
+            <div class="view-toggles" id="view-toggles">
+              <button class="view-btn active" data-view="edit">✏️ 编辑</button>
+              <button class="view-btn" data-view="preview">👁️ 预览</button>
+              <button class="view-btn" data-view="split">📐 分屏</button>
+            </div>
+            <button id="btn-pin" class="btn btn-icon" title="置顶笔记">📌</button>
+            <button id="btn-delete-note" class="btn btn-icon btn-danger" title="删除笔记">🗑️</button>
+          </div>
+        </div>
+
+        <!-- 笔记标题 -->
+        <input type="text" id="note-title" class="note-title-input" placeholder="输入笔记标题..." autocomplete="off">
+
+        <!-- 编辑 & 预览区域 -->
+        <div id="editor-area" class="editor-area mode-edit">
+          <div id="edit-pane" class="edit-pane">
+            <textarea id="note-content" class="note-content-input" placeholder="开始写笔记...&#10;&#10;支持 Markdown 语法"></textarea>
+          </div>
+          <div id="preview-pane" class="preview-pane" style="display:none">
+            <div id="markdown-preview" class="markdown-body"></div>
+          </div>
+        </div>
+
+        <!-- 底部状态栏 -->
+        <div class="editor-footer">
+          <span id="char-count">0 字符</span>
+          <span id="save-status" class="save-status">✅ 已保存</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Toast 通知容器 -->
+    <div id="toast-container" class="toast-container"></div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
