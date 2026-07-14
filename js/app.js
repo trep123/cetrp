@@ -1,56 +1,50 @@
 /* ============================================================
-   个人笔记管理 — 应用逻辑
-   纯前端静态页面，使用 localStorage 持久化数据
+   个人笔记管理 — 应用层
+   目录树视图 + Markdown 编辑器
    ============================================================ */
 
 class NotesApp {
-  // --- 常量 ---
-  STORAGE_KEY = 'notes-app-data';
-  STORAGE_VERSION = 1;
-
-  // --- 状态 ---
-  notes = [];
-  currentId = null;
-  viewMode = 'edit';       // 'edit' | 'preview' | 'split'
-  searchQuery = '';
-  categoryFilter = 'all';
-  sortBy = 'updated';
-  darkMode = false;
-  saveTimer = null;
-  sidebarOpen = false;
-
-  /* ================================================================
-     初始化
-     ================================================================ */
-
   constructor() {
+    // 状态
+    this.store = null;        // FileSystemStore | LocalStore
+    this.storeMode = 'local'; // 'fs' | 'local'
+    this.currentPath = null;  // 当前选中笔记的路径
+    this.currentData = null;  // 当前笔记的完整数据
+    this.viewMode = 'edit';   // 'edit' | 'preview' | 'split'
+    this.searchQuery = '';
+    this.searchResults = null; // 搜索结果（扁平数组，非 null 表示搜索模式）
+    this.darkMode = false;
+    this.saveTimer = null;
+    this.sidebarOpen = false;
+    this.ctxTarget = null;    // 右键菜单目标节点
+    this.ctxTargetPath = null;
+
+    // 目录树展开状态
+    this.expandedDirs = new Set();
+
     this.cacheDom();
-    this.loadFromStorage();
     this.initTheme();
-    this.render();
     this.bindEvents();
-    this.restoreLastSession();
+    this.init();
   }
 
-  /** 缓存 DOM 引用 */
+  /* ================================================================
+     DOM 缓存
+     ================================================================ */
+
   cacheDom() {
     this.els = {
       sidebar:        document.getElementById('sidebar'),
       overlay:        document.getElementById('sidebar-overlay'),
-      noteList:       document.getElementById('note-list'),
+      treeContainer:  document.getElementById('tree-container'),
       searchInput:    document.getElementById('search-input'),
-      categoryFilter: document.getElementById('category-filter'),
-      sortSelect:     document.getElementById('sort-select'),
       emptyState:     document.getElementById('empty-state'),
       editorContainer:document.getElementById('editor-container'),
       noteTitle:      document.getElementById('note-title'),
       noteContent:    document.getElementById('note-content'),
-      noteCategory:   document.getElementById('note-category'),
       noteTags:       document.getElementById('note-tags'),
-      editPane:       document.getElementById('edit-pane'),
-      previewPane:    document.getElementById('preview-pane'),
-      markdownPreview:document.getElementById('markdown-preview'),
       editorArea:     document.getElementById('editor-area'),
+      markdownPreview:document.getElementById('markdown-preview'),
       charCount:      document.getElementById('char-count'),
       saveStatus:     document.getElementById('save-status'),
       noteCount:      document.getElementById('note-count'),
@@ -58,73 +52,76 @@ class NotesApp {
       importFile:     document.getElementById('import-file'),
       pinBtn:         document.getElementById('btn-pin'),
       viewToggles:    document.getElementById('view-toggles'),
+      contextMenu:    document.getElementById('context-menu'),
+      modeIndicator:  document.getElementById('mode-indicator'),
+      btnOpenFolder:  document.getElementById('btn-open-folder'),
+      noteLocation:   document.getElementById('note-location'),
     };
   }
 
   /* ================================================================
-     数据持久化
+     初始化
      ================================================================ */
 
-  /** 从 localStorage 加载笔记和偏好设置 */
-  loadFromStorage() {
-    try {
-      const raw = localStorage.getItem(this.STORAGE_KEY);
-      if (!raw) { this.notes = []; return; }
+  async init() {
+    // 加载主题偏好
+    const saved = this._loadPrefs();
+    this.darkMode = saved.darkMode ?? window.matchMedia('(prefers-color-scheme: dark)').matches;
+    this.applyTheme();
 
-      const data = JSON.parse(raw);
-      // 兼容旧版本数据格式
-      if (data.version !== this.STORAGE_VERSION) {
-        this.notes = Array.isArray(data) ? data : (data.notes || []);
-      } else {
-        this.notes = data.notes || [];
+    // 尝试文件系统模式
+    const fsStore = new FileSystemStore();
+    if (fsStore.isSupported) {
+      const restored = await fsStore.tryRestore();
+      if (restored) {
+        this.store = fsStore;
+        this.storeMode = 'fs';
+        this.expandedDirs = new Set(saved.expandedDirs || []);
       }
-
-      // 加载偏好
-      this.currentId = data.lastNoteId || null;
-      this.sortBy = data.sortBy || 'updated';
-      this.darkMode = data.darkMode;
-
-      // 同步排序下拉框
-      if (this.els.sortSelect) {
-        this.els.sortSelect.value = this.sortBy;
-      }
-    } catch (e) {
-      console.error('加载数据失败:', e);
-      this.notes = [];
-      this.showToast('数据加载失败，已重置', 'error');
     }
-  }
 
-  /** 保存笔记到 localStorage */
-  saveToStorage() {
-    try {
-      const data = {
-        version: this.STORAGE_VERSION,
-        notes: this.notes,
-        sortBy: this.sortBy,
-        darkMode: this.darkMode,
-        lastNoteId: this.currentId,
-      };
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
-      return true;
-    } catch (e) {
-      console.error('保存失败:', e);
-      this.showToast('存储空间不足！请导出备份后清理旧笔记', 'error');
-      return false;
+    // 降级到本地存储
+    if (!this.store) {
+      this.store = new LocalStore();
+      this.storeMode = 'local';
+      this.expandedDirs = new Set(saved.expandedDirs || []);
+      // 展开所有一级目录
+      for (const n of this.store.tree) {
+        if (n.type === 'directory') this.expandedDirs.add(n.path);
+      }
+    }
+
+    this.updateModeUI();
+    this.render();
+
+    // 恢复上次选中
+    if (saved.lastPath) {
+      const node = this.store.findNode(saved.lastPath);
+      if (node && node.type === 'note') {
+        await this.selectNote(node);
+        return;
+      }
+    }
+
+    // 选中第一篇笔记
+    const allNotes = this.store.collectAllNotes();
+    if (allNotes.length > 0) {
+      const pinned = allNotes.filter(n => {
+        if (n._ref) return n._ref.pinned;
+        return false; // FS模式下延迟加载，先不判断置顶
+      });
+      await this.selectNote(pinned[0] || allNotes[0]);
     }
   }
 
   /* ================================================================
-     主题管理
+     主题
      ================================================================ */
 
   initTheme() {
-    // 优先使用用户保存的偏好，其次使用系统偏好
-    if (this.darkMode === undefined) {
-      this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
     this.applyTheme();
-    this.updateThemeButton();
+    const btn = document.getElementById('btn-theme');
+    if (btn) btn.textContent = this.darkMode ? '☀️' : '🌙';
   }
 
   applyTheme() {
@@ -134,335 +131,619 @@ class NotesApp {
   toggleTheme() {
     this.darkMode = !this.darkMode;
     this.applyTheme();
-    this.updateThemeButton();
-    this.saveToStorage();
-  }
-
-  updateThemeButton() {
-    const btn = document.getElementById('btn-theme');
-    if (btn) btn.textContent = this.darkMode ? '☀️' : '🌙';
+    document.getElementById('btn-theme').textContent = this.darkMode ? '☀️' : '🌙';
+    this._savePrefs();
   }
 
   /* ================================================================
-     笔记 CRUD
+     存储模式切换
      ================================================================ */
 
-  /** 生成唯一 ID */
-  generateId() {
-    return Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8);
-  }
+  updateModeUI() {
+    const ind = this.els.modeIndicator;
+    const btn = this.els.btnOpenFolder;
 
-  /** 创建新笔记 */
-  createNote() {
-    const now = new Date().toISOString();
-    const note = {
-      id: this.generateId(),
-      title: '',
-      content: '',
-      category: '',
-      tags: [],
-      pinned: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.notes.unshift(note);
-    this.saveToStorage();
-    this.selectNote(note.id);
-    this.renderNoteList();
-
-    // 自动聚焦标题输入
-    requestAnimationFrame(() => {
-      this.els.noteTitle.focus();
-    });
-
-    this.showToast('✅ 新笔记已创建', 'success');
-    return note;
-  }
-
-  /** 获取当前笔记 */
-  getCurrentNote() {
-    return this.notes.find(n => n.id === this.currentId) || null;
-  }
-
-  /** 更新当前笔记（部分字段） */
-  updateCurrentNote(changes) {
-    const note = this.getCurrentNote();
-    if (!note) return;
-
-    Object.assign(note, changes);
-    note.updatedAt = new Date().toISOString();
-
-    // 如果置顶状态改变，重新排序
-    if ('pinned' in changes) {
-      this.sortNotesInPlace();
+    if (this.storeMode === 'fs') {
+      ind.textContent = '📂 文件模式';
+      ind.title = '笔记以 .md 文件存储在磁盘上';
+      if (btn) btn.textContent = '📂 切换文件夹';
+    } else {
+      ind.textContent = '💾 本地存储';
+      ind.title = '笔记存储在浏览器中（点击打开文件夹切换到文件模式）';
+      if (btn) btn.textContent = '📂 打开文件夹';
     }
-
-    this.scheduleSave();
   }
 
-  /** 删除笔记 */
-  deleteNote(id) {
-    const idx = this.notes.findIndex(n => n.id === id);
-    if (idx === -1) return;
-
-    const note = this.notes[idx];
-    if (!confirm(`确定要删除笔记「${note.title || '无标题'}」吗？\n此操作不可恢复。`)) {
+  async switchToFS() {
+    if (this.storeMode === 'fs') {
+      // 重新选择目录
+      try {
+        await this.store.pickDirectory();
+        this.expandedDirs.clear();
+        for (const n of this.store.tree) {
+          if (n.type === 'directory') this.expandedDirs.add(n.path);
+        }
+        this.currentPath = null;
+        this.currentData = null;
+        this.render();
+        const notes = this.store.collectAllNotes();
+        if (notes.length > 0) await this.selectNote(notes[0]);
+        this.showToast('✅ 已切换到新文件夹', 'success');
+      } catch (e) {
+        if (e.name !== 'AbortError') {
+          this.showToast('❌ 无法打开文件夹', 'error');
+        }
+      }
       return;
     }
 
-    this.notes.splice(idx, 1);
-
-    if (this.currentId === id) {
-      this.currentId = null;
-      this.showEmptyState();
+    // 从本地存储切换到文件系统
+    const fsStore = new FileSystemStore();
+    if (!fsStore.isSupported) {
+      this.showToast('❌ 当前浏览器不支持文件系统访问，请使用 Chrome/Edge', 'error');
+      return;
     }
 
-    this.saveToStorage();
-    this.renderNoteList();
-    this.showToast('🗑️ 笔记已删除', 'info');
-  }
-
-  /** 选中笔记 */
-  selectNote(id) {
-    this.currentId = id;
-    this.showEditor();
-    this.fillEditor();
-    this.renderNoteList(); // 更新列表高亮
-    this.closeSidebar();   // 移动端关闭侧边栏
-    this.saveToStorage();  // 保存上次选中的笔记
-  }
-
-  /** 切换置顶 */
-  togglePin() {
-    const note = this.getCurrentNote();
-    if (!note) return;
-    this.updateCurrentNote({ pinned: !note.pinned });
-    this.fillEditor(); // 更新置顶按钮状态
-    this.renderNoteList();
-  }
-
-  /* ================================================================
-     搜索 & 排序 & 过滤
-     ================================================================ */
-
-  /** 获取过滤并排序后的笔记列表 */
-  getFilteredNotes() {
-    let result = [...this.notes];
-
-    // 搜索过滤
-    if (this.searchQuery.trim()) {
-      const q = this.searchQuery.trim().toLowerCase();
-      result = result.filter(n =>
-        n.title.toLowerCase().includes(q) ||
-        n.content.toLowerCase().includes(q) ||
-        (n.tags || []).some(t => t.toLowerCase().includes(q))
-      );
-    }
-
-    // 分类过滤
-    if (this.categoryFilter !== 'all') {
-      result = result.filter(n => n.category === this.categoryFilter);
-    }
-
-    // 排序：置顶优先，然后按所选排序方式
-    result.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-
-      switch (this.sortBy) {
-        case 'created':
-          return b.createdAt.localeCompare(a.createdAt);
-        case 'title':
-          return (a.title || '').localeCompare(b.title || '', 'zh');
-        case 'updated':
-        default:
-          return b.updatedAt.localeCompare(a.updatedAt);
+    try {
+      await fsStore.pickDirectory();
+      this.store = fsStore;
+      this.storeMode = 'fs';
+      this.expandedDirs.clear();
+      for (const n of this.store.tree) {
+        if (n.type === 'directory') this.expandedDirs.add(n.path);
       }
-    });
-
-    return result;
-  }
-
-  /** 原地重排笔记（用于置顶状态变更） */
-  sortNotesInPlace() {
-    this.notes.sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return b.updatedAt.localeCompare(a.updatedAt);
-    });
+      this.currentPath = null;
+      this.currentData = null;
+      this.updateModeUI();
+      this.render();
+      const notes = this.store.collectAllNotes();
+      if (notes.length > 0) await this.selectNote(notes[0]);
+      this.showToast('✅ 已切换到文件模式', 'success');
+      this._savePrefs();
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        this.showToast('❌ 无法打开文件夹', 'error');
+      }
+    }
   }
 
   /* ================================================================
      渲染
      ================================================================ */
 
-  /** 完整渲染（初始化时调用） */
   render() {
-    this.renderNoteList();
-    if (this.currentId && this.getCurrentNote()) {
+    this.renderTree();
+    if (this.currentPath) {
       this.showEditor();
-      this.fillEditor();
     } else {
-      this.currentId = null;
       this.showEmptyState();
     }
+    this._savePrefs();
   }
 
-  /** 渲染侧边栏笔记列表 */
-  renderNoteList() {
-    const notes = this.getFilteredNotes();
-    this.els.noteCount.textContent = `${notes.length} 篇笔记`;
+  /** 渲染目录树 */
+  renderTree() {
+    const container = this.els.treeContainer;
 
-    if (notes.length === 0) {
-      const hasFilter = this.searchQuery || this.categoryFilter !== 'all';
-      this.els.noteList.innerHTML = `
-        <div class="note-list-empty">
-          <p>${hasFilter ? '🔍 没有匹配的笔记' : '✨ 还没有笔记'}</p>
-          <p class="sub">${hasFilter ? '尝试其他搜索词或分类' : '点击「+ 新建笔记」开始记录'}</p>
-        </div>
-      `;
+    // 搜索模式：显示扁平结果
+    if (this.searchQuery.trim()) {
+      const query = this.searchQuery.trim().toLowerCase();
+      const allNotes = this.store.collectAllNotes();
+      const results = allNotes.filter(n => {
+        const title = n.title || '';
+        if (title.toLowerCase().includes(query)) return true;
+        // 对于本地存储模式，可以搜索内容
+        if (this.storeMode === 'local' && n._ref) {
+          return (n._ref.content || '').toLowerCase().includes(query) ||
+                 (n._ref.tags || []).some(t => t.toLowerCase().includes(query));
+        }
+        return false;
+      });
+
+      this.searchResults = results;
+      const count = results.length;
+      this.els.noteCount.textContent = `🔍 ${count} 篇`;
+
+      if (count === 0) {
+        container.innerHTML = `<div class="tree-empty">未找到匹配「${escapeHtml(query)}」的笔记</div>`;
+        return;
+      }
+
+      container.innerHTML = results.map(n => this._buildFlatItem(n)).join('');
       return;
     }
 
-    this.els.noteList.innerHTML = notes.map(n => this.buildNoteItemHTML(n)).join('');
+    // 正常树模式
+    this.searchResults = null;
+    const total = this.store.collectAllNotes().length;
+    this.els.noteCount.textContent = `${total} 篇笔记`;
+
+    if (this.store.tree.length === 0) {
+      container.innerHTML = `
+        <div class="tree-empty">
+          <p>📭 暂无笔记</p>
+          <p class="sub">右键点击空白处新建笔记或文件夹</p>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = this.store.tree.map(n => this._buildTreeNode(n, 0)).join('');
   }
 
-  /** 构建单条笔记项的 HTML */
-  buildNoteItemHTML(note) {
-    const isActive = note.id === this.currentId;
-    const title = note.title || '无标题';
-    const preview = this.stripMarkdown(note.content).substring(0, 80) || '空笔记';
-    const category = note.category || '';
-    const dateStr = this.formatDate(note.updatedAt);
-    const tags = (note.tags || []).slice(0, 3);
+  /** 构建树节点 HTML */
+  _buildTreeNode(node, depth) {
+    const isDir = node.type === 'directory';
+    const isExpanded = this.expandedDirs.has(node.path);
+    const isActive = node.path === this.currentPath;
+    const indent = depth * 20;
+
+    // 加载置顶状态（仅本地模式）
+    let isPinned = false;
+    if (node._ref) isPinned = node._ref.pinned;
+
+    let html = '';
+    html += `<div class="tree-node ${isDir ? 'tree-dir' : 'tree-note'} ${isActive ? 'active' : ''} ${isPinned ? 'pinned' : ''}"
+                  data-path="${escapeHtml(node.path)}" data-type="${node.type}"
+                  style="padding-left:${indent + 8}px">`;
+
+    if (isDir) {
+      html += `<span class="tree-toggle">${isExpanded ? '▼' : '▶'}</span>`;
+      html += `<span class="tree-icon">${isExpanded ? '📂' : '📁'}</span>`;
+    } else {
+      html += `<span class="tree-toggle" style="visibility:hidden">▶</span>`;
+      html += `<span class="tree-icon">${isPinned ? '📌' : '📄'}</span>`;
+    }
+
+    html += `<span class="tree-name">${escapeHtml(isDir ? node.name : (node.title || node.name))}</span>`;
+    html += `</div>`;
+
+    // 渲染子节点
+    if (isDir && isExpanded && node.children && node.children.length > 0) {
+      html += `<div class="tree-children">`;
+      for (const child of node.children) {
+        html += this._buildTreeNode(child, depth + 1);
+      }
+      html += `</div>`;
+    }
+
+    return html;
+  }
+
+  /** 构建搜索结果的扁平项 */
+  _buildFlatItem(node) {
+    const isActive = node.path === this.currentPath;
+    const dirPath = node.path.includes('/') ? node.path.substring(0, node.path.lastIndexOf('/')) : '';
+    let isPinned = false;
+    if (node._ref) isPinned = node._ref.pinned;
 
     return `
-      <div class="note-item${isActive ? ' active' : ''}${note.pinned ? ' pinned' : ''}"
-           data-id="${this.escapeAttr(note.id)}">
-        <div class="note-item-header">
-          ${note.pinned ? '<span class="pin-icon">📌</span>' : ''}
-          ${category ? `<span class="category-badge cat-${this.escapeAttr(category)}">${this.escapeHtml(category)}</span>` : ''}
-        </div>
-        <div class="note-item-title">${this.escapeHtml(title)}</div>
-        <div class="note-item-preview">${this.escapeHtml(preview)}</div>
-        <div class="note-item-footer">
-          <span class="note-item-date">${dateStr}</span>
-          ${tags.length ? `<span class="note-item-tags">${tags.map(t =>
-            `<span class="tag-badge">#${this.escapeHtml(t)}</span>`
-          ).join('')}</span>` : ''}
-        </div>
+      <div class="tree-node tree-note ${isActive ? 'active' : ''} ${isPinned ? 'pinned' : ''}"
+           data-path="${escapeHtml(node.path)}" data-type="note"
+           style="padding-left:8px">
+        <span class="tree-toggle" style="visibility:hidden">▶</span>
+        <span class="tree-icon">${isPinned ? '📌' : '📄'}</span>
+        <span class="tree-name">${escapeHtml(node.title || node.name)}</span>
+        ${dirPath ? `<span class="tree-path-hint">${escapeHtml(dirPath)}</span>` : ''}
       </div>`;
   }
 
-  /** 显示空状态 */
+  /** 展开/折叠目录 */
+  toggleDir(path) {
+    if (this.expandedDirs.has(path)) {
+      this.expandedDirs.delete(path);
+    } else {
+      this.expandedDirs.add(path);
+    }
+    this.renderTree();
+    this._savePrefs();
+  }
+
+  /* ================================================================
+     笔记操作
+     ================================================================ */
+
+  /** 选中笔记 */
+  async selectNote(node) {
+    if (!node || node.type !== 'note') return;
+
+    this.currentPath = node.path;
+
+    // 加载笔记数据
+    try {
+      this.currentData = await this.store.readNote(node);
+    } catch (e) {
+      console.error('读取笔记失败:', e);
+      this.showToast('❌ 读取笔记失败', 'error');
+      return;
+    }
+
+    this.showEditor();
+    this.fillEditor();
+    this.renderTree();
+    this.closeSidebar();
+    this._savePrefs();
+  }
+
+  /** 新建笔记 */
+  async createNote(parentPath = '') {
+    try {
+      const node = await this.store.createNote(parentPath, '未命名笔记');
+      if (node) {
+        // 确保父目录展开
+        if (parentPath) {
+          // 展开所有祖先目录
+          const parts = parentPath.split('/');
+          let cur = '';
+          for (const p of parts) {
+            cur = cur ? `${cur}/${p}` : p;
+            this.expandedDirs.add(cur);
+          }
+        }
+        this.renderTree();
+        await this.selectNote(node);
+        this.els.noteTitle.focus();
+        this.els.noteTitle.select();
+      }
+    } catch (e) {
+      console.error('创建笔记失败:', e);
+      this.showToast('❌ 创建笔记失败', 'error');
+    }
+  }
+
+  /** 新建文件夹 */
+  async createDirectory(parentPath = '') {
+    const name = prompt('请输入文件夹名称：', '新建文件夹');
+    if (!name || !name.trim()) return;
+
+    try {
+      await this.store.createDirectory(parentPath, name.trim());
+      this.expandedDirs.add(parentPath ? `${parentPath}/${sanitizeFilename(name.trim())}` : sanitizeFilename(name.trim()));
+      this.renderTree();
+      this.showToast('📁 文件夹已创建', 'success');
+      this._savePrefs();
+    } catch (e) {
+      console.error('创建文件夹失败:', e);
+      this.showToast('❌ 创建文件夹失败', 'error');
+    }
+  }
+
+  /** 删除条目 */
+  async deleteEntry(path) {
+    const node = this.store.findNode(path);
+    if (!node) return;
+
+    const label = node.type === 'directory'
+      ? `目录「${node.name}」及其所有笔记`
+      : `笔记「${node.title || node.name}」`;
+
+    if (!confirm(`确定要删除 ${label} 吗？\n此操作不可恢复。`)) return;
+
+    try {
+      await this.store.deleteEntry(node);
+
+      // 如果删除的是当前笔记，清除选择
+      if (this.currentPath && (this.currentPath === path || this.currentPath.startsWith(path + '/'))) {
+        this.currentPath = null;
+        this.currentData = null;
+      }
+
+      this.expandedDirs.delete(path);
+      this.render();
+      this.showToast('🗑️ 已删除', 'info');
+    } catch (e) {
+      console.error('删除失败:', e);
+      this.showToast('❌ 删除失败', 'error');
+    }
+  }
+
+  /** 重命名 */
+  async renameEntry(path) {
+    const node = this.store.findNode(path);
+    if (!node) return;
+
+    if (node.type === 'directory') {
+      const newName = prompt('请输入新文件夹名称：', node.name);
+      if (!newName || !newName.trim() || newName.trim() === node.name) return;
+      // 目录重命名：不支持直接在 FS API 中重命名目录
+      // 创建新目录 + 移动所有内容 + 删除旧目录
+      try {
+        const parentPath = path.includes('/') ? path.substring(0, path.lastIndexOf('/')) : '';
+        await this.store.createDirectory(parentPath, newName.trim());
+        const newPath = parentPath ? `${parentPath}/${sanitizeFilename(newName.trim())}` : sanitizeFilename(newName.trim());
+        // 移动子节点到新目录
+        for (const child of [...node.children]) {
+          await this.store.moveNote(child, newPath);
+        }
+        await this.store.deleteEntry(node);
+        this.expandedDirs.delete(path);
+        this.expandedDirs.add(newPath);
+        this.render();
+        this.showToast('✅ 文件夹已重命名', 'success');
+      } catch (e) {
+        console.error('重命名失败:', e);
+        this.showToast('❌ 重命名失败', 'error');
+      }
+      return;
+    }
+
+    // 重命名笔记
+    const newTitle = prompt('请输入新笔记名称：', node.title || node.name.replace(/\.md$/, ''));
+    if (!newTitle || !newTitle.trim() || newTitle.trim() === (node.title || node.name.replace(/\.md$/, ''))) return;
+
+    try {
+      await this.store.renameNote(node, newTitle.trim());
+      // 更新路径引用
+      const oldPath = node.path;
+      const parentPath = oldPath.includes('/') ? oldPath.substring(0, oldPath.lastIndexOf('/')) : '';
+      const newPath = parentPath ? `${parentPath}/${sanitizeFilename(newTitle.trim())}.md` : `${sanitizeFilename(newTitle.trim())}.md`;
+      if (this.currentPath === oldPath) {
+        this.currentPath = newPath;
+        if (this.currentData) this.currentData.title = newTitle.trim();
+      }
+      this.render();
+      this.showToast('✅ 已重命名', 'success');
+    } catch (e) {
+      console.error('重命名失败:', e);
+      this.showToast(`❌ ${e.message || '重命名失败'}`, 'error');
+    }
+  }
+
+  /** 切換置顶 */
+  async togglePin() {
+    if (!this.currentData || !this.currentPath) return;
+    this.currentData.pinned = !this.currentData.pinned;
+
+    const node = this.store.findNode(this.currentPath);
+    if (node) {
+      try {
+        await this.store.writeNote(node, this.currentData);
+      } catch (e) {
+        console.error('保存置顶状态失败:', e);
+      }
+    }
+
+    this.els.pinBtn.textContent = this.currentData.pinned ? '📌' : '📍';
+    this.els.pinBtn.title = this.currentData.pinned ? '取消置顶' : '置顶';
+    this.renderTree();
+  }
+
+  /* ================================================================
+     编辑器
+     ================================================================ */
+
   showEmptyState() {
     this.els.emptyState.style.display = '';
     this.els.editorContainer.style.display = 'none';
   }
 
-  /** 显示编辑器 */
   showEditor() {
     this.els.emptyState.style.display = 'none';
     this.els.editorContainer.style.display = '';
   }
 
-  /** 用当前笔记数据填充编辑器 */
   fillEditor() {
-    const note = this.getCurrentNote();
-    if (!note) return;
+    if (!this.currentData) return;
+    this.els.noteTitle.value = this.currentData.title || '';
+    this.els.noteContent.value = this.currentData.content || '';
+    this.els.noteTags.value = (this.currentData.tags || []).join(', ');
+    this.els.pinBtn.textContent = this.currentData.pinned ? '📌' : '📍';
+    this.els.pinBtn.title = this.currentData.pinned ? '取消置顶' : '置顶';
 
-    this.els.noteTitle.value = note.title;
-    this.els.noteContent.value = note.content;
-    this.els.noteCategory.value = note.category || '';
-    this.els.noteTags.value = (note.tags || []).join(', ');
+    // 显示笔记所在目录路径
+    const dirPath = this.currentPath && this.currentPath.includes('/')
+      ? this.currentPath.substring(0, this.currentPath.lastIndexOf('/'))
+      : '';
+    const locEl = this.els.noteLocation;
+    if (locEl) {
+      if (dirPath) {
+        locEl.innerHTML = `📁 ${escapeHtml(dirPath.split('/').join(' › '))}`;
+        locEl.style.display = '';
+      } else {
+        locEl.textContent = '📁 根目录';
+        locEl.style.display = '';
+      }
+    }
 
-    // 更新置顶按钮
-    this.els.pinBtn.textContent = note.pinned ? '📌' : '📍';
-    this.els.pinBtn.title = note.pinned ? '取消置顶' : '置顶';
-
-    // 更新字数统计
     this.updateCharCount();
-    // 更新预览
     this.renderPreview();
   }
 
-  /** 更新字数统计 */
   updateCharCount() {
-    const len = this.els.noteContent.value.length;
-    this.els.charCount.textContent = `${len.toLocaleString()} 字符`;
+    this.els.charCount.textContent = `${this.els.noteContent.value.length.toLocaleString()} 字符`;
   }
 
-  /** 渲染 Markdown 预览 */
   renderPreview() {
     const content = this.els.noteContent.value;
-    if (typeof marked !== 'undefined' && marked.parse) {
-      marked.setOptions?.({ breaks: true, gfm: true });
-      this.els.markdownPreview.innerHTML = marked.parse(content);
-    } else if (typeof marked !== 'undefined') {
-      // 旧版 marked
-      this.els.markdownPreview.innerHTML = marked(content);
-    } else {
-      // 降级：纯文本转义
-      this.els.markdownPreview.innerHTML = this.escapeHtml(content)
-        .replace(/\n/g, '<br>');
+    try {
+      if (typeof marked !== 'undefined') {
+        if (marked.parse) {
+          marked.setOptions?.({ breaks: true, gfm: true });
+          this.els.markdownPreview.innerHTML = marked.parse(content);
+        } else {
+          this.els.markdownPreview.innerHTML = marked(content);
+        }
+      } else {
+        this.els.markdownPreview.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+      }
+    } catch (e) {
+      this.els.markdownPreview.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
     }
   }
 
-  /** 切换视图模式 */
   setViewMode(mode) {
     this.viewMode = mode;
     this.els.editorArea.className = `editor-area mode-${mode}`;
-
-    // 更新按钮状态
-    this.els.viewToggles.querySelectorAll('.view-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.view === mode);
+    this.els.viewToggles.querySelectorAll('.view-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.view === mode);
     });
-
     if (mode === 'preview' || mode === 'split') {
       this.renderPreview();
     }
   }
 
-  /** 显示保存状态 */
-  showSaveStatus(status) {
-    const el = this.els.saveStatus;
-    if (status === 'saving') {
-      el.textContent = '💾 保存中...';
-      el.className = 'save-status saving';
-    } else if (status === 'saved') {
-      el.textContent = '✅ 已保存';
-      el.className = 'save-status saved';
-    }
-  }
-
-  /* ================================================================
-     自动保存
-     ================================================================ */
-
+  /** 自动保存 */
   scheduleSave() {
-    this.showSaveStatus('saving');
+    if (!this.currentPath || !this.currentData) return;
+    this.els.saveStatus.textContent = '💾 保存中...';
+    this.els.saveStatus.className = 'save-status saving';
+
     clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => {
-      this.saveToStorage();
-      this.showSaveStatus('saved');
-      // 更新列表中的预览文字和日期
-      this.renderNoteList();
+    this.saveTimer = setTimeout(async () => {
+      try {
+        const node = this.store.findNode(this.currentPath);
+        if (node) {
+          this.currentData.title = this.els.noteTitle.value;
+          this.currentData.content = this.els.noteContent.value;
+          this.currentData.tags = this.els.noteTags.value.split(/[,，]/).map(t => t.trim()).filter(Boolean);
+          this.currentData.updatedAt = new Date().toISOString();
+          await this.store.writeNote(node, this.currentData);
+
+          // 标题变更 → 重命名文件
+          const newFilename = sanitizeFilename(this.currentData.title) + '.md';
+          if (newFilename !== node.name && this.currentData.title.trim()) {
+            try {
+              const parentPath = this.currentPath.includes('/')
+                ? this.currentPath.substring(0, this.currentPath.lastIndexOf('/'))
+                : '';
+              await this.store.renameNote(node, this.currentData.title.trim());
+              // renameNote 内部 refresh() 后旧 node 引用失效，手动计算新路径
+              this.currentPath = parentPath
+                ? `${parentPath}/${newFilename}`
+                : newFilename;
+            } catch { /* 重命名失败不阻塞保存 */ }
+          }
+        }
+
+        this.els.saveStatus.textContent = '✅ 已保存';
+        this.els.saveStatus.className = 'save-status saved';
+        this.renderTree();
+      } catch (e) {
+        console.error('保存失败:', e);
+        this.els.saveStatus.textContent = '❌ 保存失败';
+        this.els.saveStatus.className = 'save-status error';
+      }
     }, 600);
   }
 
   /* ================================================================
-     导出 & 导入
+     搜索
      ================================================================ */
 
-  /** 导出笔记为 JSON 文件 */
-  exportNotes() {
-    const data = {
-      version: this.STORAGE_VERSION,
-      exportedAt: new Date().toISOString(),
-      notes: this.notes,
-    };
+  handleSearch() {
+    this.searchQuery = this.els.searchInput.value;
+    this.renderTree();
+  }
 
+  /* ================================================================
+     右键菜单
+     ================================================================ */
+
+  showContextMenu(e, path, type) {
+    e.preventDefault();
+    this.ctxTargetPath = path;
+    this.ctxTarget = type;
+
+    const menu = this.els.contextMenu;
+
+    // 根据类型显示/隐藏菜单项
+    const isDir = type === 'directory';
+    const isNote = type === 'note';
+    const isRoot = type === 'root';
+
+    menu.querySelector('[data-action="new-note"]').style.display = (isDir || isRoot) ? '' : 'none';
+    menu.querySelector('[data-action="new-folder"]').style.display = (isDir || isRoot) ? '' : 'none';
+    menu.querySelector('[data-action="rename"]').style.display = (isDir || isNote) ? '' : 'none';
+    menu.querySelector('[data-action="delete"]').style.display = (isDir || isNote) ? '' : 'none';
+    menu.querySelector('[data-action="move"]').style.display = isNote ? '' : 'none';
+    menu.querySelector('[data-action="export-json"]').style.display = (isRoot && this.storeMode === 'local') ? '' : 'none';
+    menu.querySelector('[data-action="import-json"]').style.display = (isRoot && this.storeMode === 'local') ? '' : 'none';
+
+    // 定位
+    const x = Math.min(e.clientX, window.innerWidth - 200);
+    const y = Math.min(e.clientY, window.innerHeight - 280);
+    menu.style.left = x + 'px';
+    menu.style.top = y + 'px';
+    menu.style.display = 'block';
+  }
+
+  hideContextMenu() {
+    this.els.contextMenu.style.display = 'none';
+    this.ctxTargetPath = null;
+    this.ctxTarget = null;
+  }
+
+  async handleContextAction(action) {
+    const path = this.ctxTargetPath;
+    this.hideContextMenu();
+
+    switch (action) {
+      case 'new-note':
+        await this.createNote(this.ctxTarget === 'directory' ? path : '');
+        break;
+      case 'new-folder':
+        await this.createDirectory(this.ctxTarget === 'directory' ? path : '');
+        break;
+      case 'rename':
+        await this.renameEntry(path);
+        break;
+      case 'delete':
+        await this.deleteEntry(path);
+        break;
+      case 'move': {
+        // 收集所有目录作为移动目标
+        const dirs = this._collectAllDirs();
+        if (dirs.length === 0) {
+          this.showToast('暂无目标文件夹', 'info');
+          break;
+        }
+        const target = prompt(
+          '移动到哪个文件夹？\n（输入路径，留空移到根目录）\n\n可用文件夹：\n' +
+          dirs.map(d => `  📁 ${d}`).join('\n'),
+          ''
+        );
+        if (target === null) break;
+        try {
+          const node = this.store.findNode(path);
+          if (node) {
+            await this.store.moveNote(node, target.trim());
+            this.renderTree();
+            this.showToast('✅ 已移动', 'success');
+          }
+        } catch (e) {
+          this.showToast(`❌ ${e.message || '移动失败'}`, 'error');
+        }
+        break;
+      }
+      case 'export-json':
+        if (this.storeMode === 'local') {
+          this._exportLocal();
+        }
+        break;
+      case 'import-json':
+        if (this.storeMode === 'local') {
+          this.els.importFile.click();
+        }
+        break;
+    }
+  }
+
+  _collectAllDirs(nodes = this.store.tree) {
+    const result = [''];
+    for (const n of nodes) {
+      if (n.type === 'directory') {
+        result.push(n.path);
+        if (n.children) result.push(...this._collectAllDirs(n.children));
+      }
+    }
+    return result.filter(Boolean);
+  }
+
+  /* ================================================================
+     导出/导入（仅本地存储模式）
+     ================================================================ */
+
+  _exportLocal() {
+    const data = this.store.exportJSON();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -472,80 +753,27 @@ class NotesApp {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
-    this.showToast(`📤 已导出 ${this.notes.length} 篇笔记`, 'success');
+    this.showToast(`📤 已导出 ${data.notes.length} 篇笔记`, 'success');
   }
 
-  /** 触发导入文件选择 */
-  importNotes() {
-    this.els.importFile.click();
-  }
-
-  /** 处理导入文件 */
-  handleImportFile(file) {
+  _importLocal(file) {
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-        const importedNotes = this.validateImportData(data);
-
-        if (!importedNotes) {
-          throw new Error('文件格式不正确');
+        const count = this.store.importJSON(data);
+        if (count > 0) {
+          this.render();
+          this.showToast(`📥 成功导入 ${count} 篇笔记`, 'success');
+        } else {
+          this.showToast('所有笔记已存在，无需导入', 'info');
         }
-
-        const action = confirm(
-          `发现 ${importedNotes.length} 篇笔记。\n\n` +
-          `• 点击「确定」：合并导入（保留已有笔记）\n` +
-          `• 点击「取消」：放弃导入`
-        );
-
-        if (action) {
-          // 合并导入：跳过 ID 重复的笔记
-          const existingIds = new Set(this.notes.map(n => n.id));
-          const newNotes = importedNotes.filter(n => !existingIds.has(n.id));
-
-          if (newNotes.length === 0) {
-            this.showToast('所有笔记已存在，无需导入', 'info');
-            return;
-          }
-
-          this.notes.push(...newNotes);
-          this.saveToStorage();
-          this.renderNoteList();
-          this.showToast(`📥 成功导入 ${newNotes.length} 篇笔记`, 'success');
-        }
-      } catch (err) {
-        console.error('导入失败:', err);
-        this.showToast('❌ 导入失败：文件格式不正确', 'error');
+      } catch {
+        this.showToast('❌ 文件格式不正确', 'error');
       }
     };
     reader.readAsText(file);
-  }
-
-  /** 验证导入数据的格式 */
-  validateImportData(data) {
-    if (!data || typeof data !== 'object') return null;
-    // 支持 { version, notes } 格式或纯数组
-    const notes = Array.isArray(data) ? data : data.notes;
-    if (!Array.isArray(notes)) return null;
-
-    // 确保每条笔记包含必要字段
-    const valid = notes.filter(n =>
-      n && typeof n === 'object' && typeof n.id === 'string'
-    ).map(n => ({
-      id: n.id,
-      title: typeof n.title === 'string' ? n.title : '',
-      content: typeof n.content === 'string' ? n.content : '',
-      category: typeof n.category === 'string' ? n.category : '',
-      tags: Array.isArray(n.tags) ? n.tags : [],
-      pinned: !!n.pinned,
-      createdAt: n.createdAt || new Date().toISOString(),
-      updatedAt: n.updatedAt || new Date().toISOString(),
-    }));
-
-    return valid.length > 0 ? valid : null;
   }
 
   /* ================================================================
@@ -553,11 +781,7 @@ class NotesApp {
      ================================================================ */
 
   toggleSidebar() {
-    if (this.sidebarOpen) {
-      this.closeSidebar();
-    } else {
-      this.openSidebar();
-    }
+    this.sidebarOpen ? this.closeSidebar() : this.openSidebar();
   }
 
   openSidebar() {
@@ -572,15 +796,6 @@ class NotesApp {
     this.els.overlay.classList.remove('show');
   }
 
-  /** 恢复上次会话：选中上次打开的笔记 */
-  restoreLastSession() {
-    if (this.currentId && this.getCurrentNote()) {
-      this.selectNote(this.currentId);
-    } else if (this.notes.length > 0) {
-      this.selectNote(this.notes[0].id);
-    }
-  }
-
   /* ================================================================
      Toast 通知
      ================================================================ */
@@ -590,14 +805,34 @@ class NotesApp {
     toast.className = `toast toast-${type}`;
     toast.textContent = message;
     this.els.toastContainer.appendChild(toast);
-
-    // 自动消失
     setTimeout(() => {
       toast.classList.add('removing');
-      toast.addEventListener('animationend', () => {
-        toast.remove();
-      });
+      toast.addEventListener('animationend', () => toast.remove());
     }, 2500);
+  }
+
+  /* ================================================================
+     偏好持久化
+     ================================================================ */
+
+  _loadPrefs() {
+    try {
+      const raw = localStorage.getItem('notes-app-prefs');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  _savePrefs() {
+    try {
+      localStorage.setItem('notes-app-prefs', JSON.stringify({
+        darkMode: this.darkMode,
+        lastPath: this.currentPath,
+        storeMode: this.storeMode,
+        expandedDirs: [...this.expandedDirs],
+      }));
+    } catch { /* ignore */ }
   }
 
   /* ================================================================
@@ -605,192 +840,145 @@ class NotesApp {
      ================================================================ */
 
   bindEvents() {
-    // --- 侧边栏 ---
-    this.els.noteList.addEventListener('click', (e) => {
-      const item = e.target.closest('.note-item');
-      if (item) {
-        this.selectNote(item.dataset.id);
+    // 树容器 — 单击选中 & 展开/折叠
+    this.els.treeContainer.addEventListener('click', async (e) => {
+      // 展开/折叠箭头
+      const toggle = e.target.closest('.tree-toggle');
+      if (toggle && !toggle.style.visibility.includes('hidden')) {
+        const node = e.target.closest('.tree-node');
+        if (node) {
+          this.toggleDir(node.dataset.path);
+        }
+        return;
+      }
+
+      // 选中笔记
+      const treeNode = e.target.closest('.tree-node');
+      if (!treeNode) return;
+      if (treeNode.dataset.type === 'note') {
+        await this.selectNote(treeNode);
+      } else if (treeNode.dataset.type === 'directory') {
+        this.toggleDir(treeNode.dataset.path);
       }
     });
 
-    this.els.searchInput.addEventListener('input', (e) => {
-      this.searchQuery = e.target.value;
-      this.renderNoteList();
+    // 树容器 — 右键菜单
+    this.els.treeContainer.addEventListener('contextmenu', (e) => {
+      const treeNode = e.target.closest('.tree-node');
+      if (treeNode) {
+        this.showContextMenu(e, treeNode.dataset.path, treeNode.dataset.type);
+      } else {
+        this.showContextMenu(e, '', 'root');
+      }
     });
 
-    this.els.categoryFilter.addEventListener('change', (e) => {
-      this.categoryFilter = e.target.value;
-      this.renderNoteList();
+    // 右键菜单项
+    this.els.contextMenu.addEventListener('click', (e) => {
+      const item = e.target.closest('.ctx-item');
+      if (!item) return;
+      this.handleContextAction(item.dataset.action);
     });
 
-    this.els.sortSelect.addEventListener('change', () => {
-      this.sortBy = this.els.sortSelect.value;
-      this.saveToStorage();
-      this.renderNoteList();
-      if (this.currentId) this.selectNote(this.currentId);
+    // 点击空白关闭右键菜单
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.context-menu')) {
+        this.hideContextMenu();
+      }
     });
 
-    // --- 编辑器 ---
-    this.els.noteTitle.addEventListener('input', () => {
-      this.updateCurrentNote({ title: this.els.noteTitle.value });
-    });
+    // 搜索
+    this.els.searchInput.addEventListener('input', () => this.handleSearch());
 
+    // 编辑器
+    this.els.noteTitle.addEventListener('input', () => this.scheduleSave());
     this.els.noteContent.addEventListener('input', () => {
-      this.updateCurrentNote({ content: this.els.noteContent.value });
+      this.scheduleSave();
       this.updateCharCount();
-      // 预览模式下实时更新
       if (this.viewMode === 'preview' || this.viewMode === 'split') {
         this.renderPreview();
       }
     });
+    this.els.noteTags.addEventListener('input', () => this.scheduleSave());
 
-    this.els.noteCategory.addEventListener('change', () => {
-      this.updateCurrentNote({ category: this.els.noteCategory.value });
-      this.renderNoteList();
-    });
-
-    this.els.noteTags.addEventListener('input', () => {
-      const tags = this.els.noteTags.value
-        .split(/[,，]/)
-        .map(t => t.trim())
-        .filter(Boolean);
-      this.updateCurrentNote({ tags });
-    });
-
-    // --- 按钮 ---
-    document.getElementById('btn-new-note').addEventListener('click', () => this.createNote());
-    document.getElementById('btn-empty-new').addEventListener('click', () => this.createNote());
+    // 按钮
+    document.getElementById('btn-new-note').addEventListener('click', () => this.createNote(''));
+    document.getElementById('btn-empty-new').addEventListener('click', () => this.createNote(''));
+    document.getElementById('btn-new-folder').addEventListener('click', () => this.createDirectory(''));
     document.getElementById('btn-theme').addEventListener('click', () => this.toggleTheme());
-    document.getElementById('btn-export').addEventListener('click', () => this.exportNotes());
-    document.getElementById('btn-import').addEventListener('click', () => this.importNotes());
     document.getElementById('btn-pin').addEventListener('click', () => this.togglePin());
     document.getElementById('btn-menu').addEventListener('click', () => this.toggleSidebar());
     this.els.overlay.addEventListener('click', () => this.closeSidebar());
+    if (this.els.btnOpenFolder) {
+      this.els.btnOpenFolder.addEventListener('click', () => this.switchToFS());
+    }
 
     document.getElementById('btn-delete-note').addEventListener('click', () => {
-      if (this.currentId) this.deleteNote(this.currentId);
+      if (this.currentPath) this.deleteEntry(this.currentPath);
     });
 
-    // --- 视图切换 ---
+    // 视图切换
     this.els.viewToggles.addEventListener('click', (e) => {
       const btn = e.target.closest('.view-btn');
-      if (btn) {
-        this.setViewMode(btn.dataset.view);
-      }
+      if (btn) this.setViewMode(btn.dataset.view);
     });
 
-    // --- 导入文件 ---
+    // 导入文件
     this.els.importFile.addEventListener('change', (e) => {
-      this.handleImportFile(e.target.files[0]);
-      e.target.value = ''; // 允许重复选择同一文件
+      this._importLocal(e.target.files[0]);
+      e.target.value = '';
     });
 
-    // --- 键盘快捷键 ---
+    // 键盘快捷键
     document.addEventListener('keydown', (e) => {
-      const mod = e.ctrlKey || e.metaKey; // Mac 支持 Cmd
-
-      // Ctrl+N: 新建笔记
+      const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === 'n') {
         e.preventDefault();
-        this.createNote();
+        // 在当前选中笔记的目录中创建
+        let parentPath = '';
+        if (this.currentPath && this.currentPath.includes('/')) {
+          parentPath = this.currentPath.substring(0, this.currentPath.lastIndexOf('/'));
+        }
+        this.createNote(parentPath);
       }
-      // Ctrl+S: 手动保存
       if (mod && e.key === 's') {
         e.preventDefault();
-        this.saveToStorage();
-        this.showSaveStatus('saved');
-        this.renderNoteList();
-        this.showToast('✅ 笔记已保存', 'success');
+        if (this.currentPath && this.currentData) {
+          const node = this.store.findNode(this.currentPath);
+          if (node) {
+            this.store.writeNote(node, this.currentData);
+            this.els.saveStatus.textContent = '✅ 已保存';
+            this.els.saveStatus.className = 'save-status saved';
+            this.showToast('✅ 笔记已保存', 'success');
+          }
+        }
       }
-      // Escape: 关闭移动端侧边栏
-      if (e.key === 'Escape' && this.sidebarOpen) {
-        this.closeSidebar();
+      if (e.key === 'Escape') {
+        if (this.sidebarOpen) this.closeSidebar();
+        this.hideContextMenu();
       }
     });
 
-    // --- 监听系统主题变化 ---
+    // 系统主题变化
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      // 仅当用户没有手动设置过主题时才跟随系统
-      if (!this.darkMode && e.matches) {
+      const saved = this._loadPrefs();
+      if (!saved.darkMode && e.matches) {
         this.darkMode = true;
         this.applyTheme();
-        this.updateThemeButton();
-        this.saveToStorage();
-      } else if (this.darkMode && !e.matches) {
+        document.getElementById('btn-theme').textContent = '☀️';
+        this._savePrefs();
+      } else if (saved.darkMode && !e.matches) {
         this.darkMode = false;
         this.applyTheme();
-        this.updateThemeButton();
-        this.saveToStorage();
+        document.getElementById('btn-theme').textContent = '🌙';
+        this._savePrefs();
       }
-    });
-  }
-
-  /* ================================================================
-     工具方法
-     ================================================================ */
-
-  /** HTML 转义（防 XSS） */
-  escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  /** 属性值转义 */
-  escapeAttr(str) {
-    return str.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  /** 去除 Markdown 标记，返回纯文本预览 */
-  stripMarkdown(text) {
-    if (!text) return '';
-    return text
-      .replace(/#{1,6}\s/g, '')
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/__(.+?)__/g, '$1')
-      .replace(/\*(.+?)\*/g, '$1')
-      .replace(/_(.+?)_/g, '$1')
-      .replace(/`{1,3}[^`]*`{1,3}/g, '')
-      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
-      .replace(/!\[.*?\]\(.+?\)/g, '')
-      .replace(/^[*-+]\s/gm, '')
-      .replace(/^\d+\.\s/gm, '')
-      .replace(/>\s/g, '')
-      .replace(/\n+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  /** 格式化日期为相对时间 */
-  formatDate(dateStr) {
-    if (!dateStr) return '';
-
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now - date;
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-
-    if (seconds < 60) return '刚刚';
-    if (minutes < 60) return `${minutes} 分钟前`;
-    if (hours < 24) return `${hours} 小时前`;
-    if (days < 7) return `${days} 天前`;
-    if (days < 30) return `${Math.floor(days / 7)} 周前`;
-
-    // 超过30天显示具体日期
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
     });
   }
 }
 
-/* ================================================================
-   启动应用
-   ================================================================ */
+// ==========================================================
+// 启动
+// ==========================================================
 document.addEventListener('DOMContentLoaded', () => {
   new NotesApp();
 });

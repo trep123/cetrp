@@ -16,9 +16,15 @@
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-header">
         <h1 class="app-title">📝 我的笔记</h1>
-        <button id="btn-new-note" class="btn btn-primary">
-          <span class="icon">+</span> 新建笔记
-        </button>
+        <div class="sidebar-header-btns">
+          <button id="btn-new-note" class="btn btn-primary btn-sm" title="新建笔记">+</button>
+          <button id="btn-new-folder" class="btn btn-sm" title="新建文件夹">📁</button>
+        </div>
+      </div>
+
+      <div class="sidebar-mode">
+        <span id="mode-indicator" class="mode-indicator" title="">💾 本地存储</span>
+        <button id="btn-open-folder" class="btn btn-sm btn-folder" title="打开文件夹以使用文件系统存储">📂 打开文件夹</button>
       </div>
 
       <div class="sidebar-search">
@@ -26,38 +32,35 @@
         <input type="text" id="search-input" placeholder="搜索笔记..." autocomplete="off">
       </div>
 
-      <div class="sidebar-filters">
-        <select id="category-filter" class="select-sm">
-          <option value="all">📁 全部分类</option>
-          <option value="工作">💼 工作</option>
-          <option value="学习">📚 学习</option>
-          <option value="生活">🏠 生活</option>
-          <option value="项目">🚀 项目</option>
-          <option value="其他">📋 其他</option>
-        </select>
-        <select id="sort-select" class="select-sm">
-          <option value="updated">🕐 最近修改</option>
-          <option value="created">📅 最近创建</option>
-          <option value="title">🔤 标题 A-Z</option>
-        </select>
-      </div>
-
-      <div id="note-list" class="note-list">
-        <div class="note-list-empty">
-          <p>✨ 还没有笔记</p>
-          <p class="sub">点击「+ 新建笔记」开始记录</p>
+      <!-- 目录树 -->
+      <div id="tree-container" class="tree-container">
+        <div class="tree-empty">
+          <p>📭 暂无笔记</p>
+          <p class="sub">右键点击空白处新建笔记或文件夹</p>
         </div>
       </div>
 
       <div class="sidebar-footer">
         <button id="btn-theme" class="btn btn-icon" title="切换深色/浅色模式">🌙</button>
-        <button id="btn-export" class="btn btn-icon" title="导出笔记为 JSON">📤</button>
-        <button id="btn-import" class="btn btn-icon" title="从 JSON 导入笔记">📥</button>
         <span class="note-count" id="note-count">0 篇笔记</span>
       </div>
 
       <input type="file" id="import-file" accept=".json" hidden>
     </aside>
+
+    <!-- 右键菜单 -->
+    <div id="context-menu" class="context-menu" style="display:none">
+      <div class="ctx-item" data-action="new-note">📄 新建笔记</div>
+      <div class="ctx-item" data-action="new-folder">📁 新建文件夹</div>
+      <div class="ctx-separator"></div>
+      <div class="ctx-item" data-action="rename">✏️ 重命名</div>
+      <div class="ctx-item" data-action="move">📦 移动到…</div>
+      <div class="ctx-separator"></div>
+      <div class="ctx-item" data-action="export-json">📤 导出 JSON</div>
+      <div class="ctx-item" data-action="import-json">📥 导入 JSON</div>
+      <div class="ctx-separator"></div>
+      <div class="ctx-item ctx-danger" data-action="delete">🗑️ 删除</div>
+    </div>
 
     <!-- 移动端菜单按钮 -->
     <button id="btn-menu" class="btn btn-icon mobile-menu-btn" title="菜单">☰</button>
@@ -72,32 +75,26 @@
         <button id="btn-empty-new" class="btn btn-primary btn-lg">+ 新建笔记</button>
         <div class="shortcut-hints">
           <span><kbd>Ctrl</kbd> + <kbd>N</kbd> 新建笔记</span>
-          <span><kbd>Ctrl</kbd> + <kbd>S</kbd> 保存笔记</span>
+          <span><kbd>Ctrl</kbd> + <kbd>S</kbd> 保存</span>
+          <span>右键目录树查看更多操作</span>
         </div>
       </div>
 
-      <!-- 编辑器区域：选中笔记后显示 -->
+      <!-- 编辑器区域 -->
       <div id="editor-container" class="editor-container" style="display:none">
         <!-- 工具栏 -->
         <div class="editor-toolbar">
           <div class="toolbar-left">
-            <select id="note-category" class="select-sm">
-              <option value="">📁 选择分类</option>
-              <option value="工作">💼 工作</option>
-              <option value="学习">📚 学习</option>
-              <option value="生活">🏠 生活</option>
-              <option value="项目">🚀 项目</option>
-              <option value="其他">📋 其他</option>
-            </select>
-            <input type="text" id="note-tags" class="tags-input" placeholder="标签，逗号分隔" autocomplete="off">
+            <span id="note-location" class="note-location" title="笔记所在目录"></span>
           </div>
           <div class="toolbar-right">
+            <input type="text" id="note-tags" class="tags-input" placeholder="标签，逗号分隔" autocomplete="off">
             <div class="view-toggles" id="view-toggles">
               <button class="view-btn active" data-view="edit">✏️ 编辑</button>
               <button class="view-btn" data-view="preview">👁️ 预览</button>
               <button class="view-btn" data-view="split">📐 分屏</button>
             </div>
-            <button id="btn-pin" class="btn btn-icon" title="置顶笔记">📌</button>
+            <button id="btn-pin" class="btn btn-icon" title="置顶">📍</button>
             <button id="btn-delete-note" class="btn btn-icon btn-danger" title="删除笔记">🗑️</button>
           </div>
         </div>
@@ -127,6 +124,7 @@
     <div id="toast-container" class="toast-container"></div>
   </div>
 
+  <script src="js/store.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
