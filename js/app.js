@@ -300,6 +300,10 @@ class NotesApp {
   }
 
   async createNote(parentPath = '') {
+    if (!this.store.rootHandle) {
+      this.showToast('⚠️ 请先选择笔记目录', 'info');
+      return;
+    }
     try {
       const node = await this.store.createNote(parentPath, '未命名笔记');
       if (node) {
@@ -323,6 +327,10 @@ class NotesApp {
   }
 
   async createDirectory(parentPath = '') {
+    if (!this.store.rootHandle) {
+      this.showToast('⚠️ 请先选择笔记目录', 'info');
+      return;
+    }
     const name = prompt('请输入文件夹名称：', '新建文件夹');
     if (!name || !name.trim()) return;
     try {
