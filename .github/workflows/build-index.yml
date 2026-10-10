@@ -1,0 +1,41 @@
+name: 更新笔记索引
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'notes/**'
+      - '!notes/index.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-index
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 生成 notes/index.json
+        run: node scripts/build-index.mjs
+
+      - name: 有变化时提交
+        run: |
+          if git diff --quiet -- notes/index.json; then
+            echo "索引无变化"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git add notes/index.json
+          git commit -m "chore: 更新 notes/index.json"
+          git push
