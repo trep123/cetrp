@@ -829,6 +829,89 @@ mark { background: var(--mark-bg); color: var(--mark-text); border-radius: 3px; 
   .home-stats { grid-template-columns: repeat(2, 1fr); }
 }
 
+/* ========== 自适应屏幕（流式尺寸 + 大屏 / 平板 / 手机横竖屏） ========== */
+:root {
+  --side-w: clamp(250px, 21vw, 330px);
+  --wrap-max: 1440px;
+}
+.wrap { max-width: var(--wrap-max); padding: clamp(8px, 1.4vw, 24px); padding-left: max(clamp(8px, 1.4vw, 24px), env(safe-area-inset-left));
+  padding-right: max(clamp(8px, 1.4vw, 24px), env(safe-area-inset-right)); gap: clamp(14px, 1.6vw, 28px); }
+.side-card { width: var(--side-w); }
+.post-title { font-size: clamp(19px, 1.1vw + 12px, 26px); }
+.post-full .post-title { font-size: clamp(22px, 1.4vw + 14px, 34px); }
+.markdown { font-size: clamp(15px, .25vw + 13.6px, 17.5px); }
+.post-full { padding: clamp(20px, 2.6vw, 44px) clamp(14px, 3vw, 48px) clamp(18px, 2.2vw, 34px); }
+.home-stats { grid-template-columns: repeat(auto-fit, minmax(min(110px, 40%), 1fr)); }
+.markdown img, .markdown video, .markdown iframe { max-width: 100%; }
+.markdown iframe { width: 100%; aspect-ratio: 16 / 9; height: auto; border: 0; }
+.markdown pre, .markdown table { max-width: 100%; }
+
+/* 大屏：内容区跟着变宽，正文略放大 */
+@media (min-width: 1600px) {
+  :root { --wrap-max: 1600px; --article-width: 860px; }
+  .post-layout.has-toc { grid-template-columns: minmax(0, 1fr) 260px; }
+}
+@media (min-width: 1920px) {
+  :root { --wrap-max: 1800px; --article-width: 900px; }
+  .post-layout.has-toc { grid-template-columns: minmax(0, 1fr) 280px; }
+}
+@media (min-width: 2400px) {
+  :root { --wrap-max: 2100px; --article-width: 960px; }
+  html { font-size: 112.5%; }
+}
+
+/* 平板横屏 / 小笔记本（901–1279px）：左栏收窄，隐藏项目块，给正文更多空间 */
+@media (min-width: 901px) and (max-width: 1279px) {
+  :root { --side-w: 250px; }
+  .side-card { padding: 22px 16px 18px; }
+  .avatar { width: 96px; height: 96px; }
+  .author { font-size: 26px; }
+  .side-card .projects-block { display: none; }
+}
+
+/* 手机 / 平板竖屏：左栏变成紧凑的顶部信息条，菜单横向滑动 */
+@media (max-width: 900px) {
+  .side-card { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 14px; text-align: left; padding: 12px 14px; }
+  .side-card .profile { display: contents; }
+  .side-card .avatar { grid-row: span 2; width: 64px; height: 64px; padding: 3px; }
+  .side-card .author { margin: 0; font-size: 22px; align-self: end; }
+  .side-card .subtitle { margin: 0; font-size: 13px; align-self: start; }
+  .side-card .menu { grid-column: 1 / -1; flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; margin: 8px -14px 0; padding: 2px 14px 4px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+  .side-card .menu::-webkit-scrollbar { display: none; }
+  .side-card .menu a { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
+  .side-card .social { grid-column: 1 / -1; justify-content: flex-start; margin-top: 6px; font-size: 18px; }
+  .search-results { max-height: 65vh; overflow-y: auto; }
+  .back-top { bottom: max(20px, env(safe-area-inset-bottom)); }
+  .drawer-btn { bottom: max(20px, env(safe-area-inset-bottom)); }
+  .post-nav { flex-direction: column; }
+  .post-nav a { max-width: 100%; }
+}
+@media (max-width: 480px) {
+  .side-card .social { display: none; }
+  .search-bar > i { display: none; }
+  .theme-panel { right: 0; width: min(240px, calc(100vw - 16px)); }
+}
+/* 手机横屏（矮屏）：顶部吸附栏不占空间、目录高度受限 */
+@media (max-height: 520px) and (orientation: landscape) {
+  .top-bar { position: static; }
+  .side-card { position: static; max-height: none; }
+  .toc-list { max-height: 60vh; }
+}
+/* 触屏设备：取消 hover 上浮，增大点击区域 */
+@media (hover: none) {
+  .post-card:not(.post-full):hover { translate: none; }
+  .toc-list a { padding-top: 6px; padding-bottom: 6px; }
+  .menu a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; }
+}
+/* 打印 */
+@media print {
+  #particles, .side-card, .top-bar, .toc, .back-top, .drawer-btn, .post-nav, .copy-link-btn, .site-footer { display: none !important; }
+  .wrap { display: block; max-width: none; padding: 0; }
+  .post-card { box-shadow: none; border: 0; background: #fff; color: #000; }
+  .glow-in { opacity: 1 !important; transform: none !important; }
+}
+
 /* ========== 减少动态效果 ========== */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

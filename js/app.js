@@ -551,11 +551,12 @@
     const hs = $$('h2, h3, h4', body);
     if (hs.length < 2) return;
     const toc = document.createElement('nav');
-    toc.className = 'toc' + (innerWidth < 1280 ? ' collapsed' : '');
+    const wide = window.matchMedia ? matchMedia('(min-width: 1280px)').matches : innerWidth >= 1280;
+    toc.className = 'toc' + (wide ? '' : ' collapsed');
     toc.innerHTML = `<div class="toc-head"><span><i class="fa-solid fa-list-ul"></i> 目录</span><i class="fa-solid fa-chevron-down"></i></div>
       <ul class="toc-list">${hs.map(h => `<li class="lv${h.tagName[1]}"><a href="#" data-id="${h.id}">${esc(h.dataset.text ?? h.textContent)}</a></li>`).join('')}</ul>`;
     layout.classList.add('has-toc');
-    if (innerWidth >= 1280) layout.append(toc); else layout.prepend(toc);
+    if (wide) layout.append(toc); else layout.prepend(toc);
     $('.toc-head', toc).onclick = () => toc.classList.toggle('collapsed');
     toc.addEventListener('click', e => {
       const a = e.target.closest('a[data-id]');
@@ -574,7 +575,18 @@
     };
     addEventListener('scroll', onScroll, { passive: true });
     onScroll();
-    tocCleanup = () => removeEventListener('scroll', onScroll);
+    // 屏幕宽度跨过 1280px（旋转屏幕 / 拖动窗口）时，目录在侧边与顶部之间切换
+    const mq = window.matchMedia ? matchMedia('(min-width: 1280px)') : null;
+    const onMq = () => {
+      if (!mq) return;
+      if (mq.matches) { layout.append(toc); toc.classList.remove('collapsed'); }
+      else { layout.prepend(toc); toc.classList.add('collapsed'); }
+    };
+    if (mq) { if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq); }
+    tocCleanup = () => {
+      removeEventListener('scroll', onScroll);
+      if (mq) { if (mq.removeEventListener) mq.removeEventListener('change', onMq); else if (mq.removeListener) mq.removeListener(onMq); }
+    };
   }
 
   /* ---------- 搜索 ---------- */
