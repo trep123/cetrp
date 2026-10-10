@@ -177,6 +177,16 @@
     }));
     return out;
   }
+  // 首页介绍：仓库根目录的 home.md（config.js 里 home: '' 可关闭，也可改成其他路径）
+  let homeMd = null;
+  async function loadHome() {
+    const file = C.home === undefined ? 'home.md' : C.home;
+    if (!file) return;
+    try {
+      const r = await fetch(encPath(file), { cache: 'no-cache' });
+      if (r.ok) homeMd = { path: file, body: parseFrontMatter(await r.text()).body };
+    } catch { /* 没有 home.md 就不显示 */ }
+  }
   async function loadPosts() {
     const paths = await listFiles();
     const texts = await pool(paths, 8, p => fetch(encPath(p)).then(r => (r.ok ? r.text() : null)));
@@ -271,6 +281,29 @@
       </div>
     </article>`;
   }
+  function homeBlocks() {
+    const cats = [...catMap.keys()].filter(k => !k.includes('/'))
+      .sort((a, b) => catMap.get(b).length - catMap.get(a).length || a.localeCompare(b, 'zh'));
+    const latest = posts.find(p => p.date);
+    const stat = (n, label) => `<div class="home-stat"><b>${n}</b><span>${label}</span></div>`;
+    return {
+      stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${stat(tagMap.size, '标签')}${latest ? stat(fmtDate(latest.date), '最近更新') : ''}</div>`,
+      categories: cats.length ? `<div class="home-cats">${cats.map(k => `<a class="cat-item" href="${catHref(k)}"><i class="fa-solid fa-folder"></i>${esc(k)}<span class="num">${catMap.get(k).length}</span></a>`).join('')}</div>` : '',
+      recent: `<ul class="archive-list home-recent">${posts.slice(0, 5).map(p => `<li><time>${p.date ? fmtDate(p.date) : '--'}</time><a href="${postHref(p)}">${esc(p.title)}</a></li>`).join('')}</ul>`,
+      tags: `<div class="home-tags">${[...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length).slice(0, 20).map(t => tagChip(t)).join('')}</div>`,
+    };
+  }
+  function homeIntro() {
+    if (!homeMd || !homeMd.body.trim()) return '';
+    const div = document.createElement('div');
+    renderMd(div, homeMd.body, { path: homeMd.path });
+    enhanceCode(div);
+    const blocks = homeBlocks();
+    // 占位符：{{stats}} {{categories}} {{recent}} {{tags}}
+    let html = div.innerHTML.replace(/<p>\s*\{\{\s*(\w+)\s*\}\}\s*<\/p>|\{\{\s*(\w+)\s*\}\}/g,
+      (m, a, b) => blocks[a || b] ?? m);
+    return `<article class="post-card home-intro glow-in"><div class="markdown">${html}</div></article>`;
+  }
   function viewHome(page) {
     const size = Math.max(1, C.pageSize | 0);
     const total = Math.max(1, Math.ceil(posts.length / size));
@@ -279,7 +312,7 @@
       content().innerHTML = `<div class="post-card"><div class="empty-tip">还没有笔记。在仓库的 <code>${esc(repo.dir)}/</code> 目录里添加 .md 文件，push 后刷新即可。</div></div>`;
       return setTitle();
     }
-    let html = posts.slice((page - 1) * size, page * size).map(card).join('');
+    let html = (page === 1 ? homeIntro() : '') + posts.slice((page - 1) * size, page * size).map(card).join('');
     if (total > 1) {
       html += '<nav class="pager">';
       if (page > 1) html += `<a href="#/page/${page - 1}"><i class="fa-solid fa-angle-left"></i></a>`;
@@ -614,7 +647,7 @@
     } else $('#backTop').remove();
     renderSidebar();
     try {
-      await loadPosts();
+      await Promise.all([loadPosts(), loadHome()]);
     } catch (e) {
       content().innerHTML = `<div class="post-card"><div class="empty-tip"><i class="fa-solid fa-triangle-exclamation"></i> ${esc(e.message)}<br>
         <small>请检查 config.js 里的 repo 配置；本地预览时需填写 owner 和 name。</small></div></div>`;
