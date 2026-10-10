@@ -1,1 +1,65 @@
-123
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loading…</title>
+  <link rel="icon" id="favicon" href="data:,">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script src="js/particles.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <canvas id="particles" aria-hidden="true"></canvas>
+
+  <div class="wrap">
+    <!-- 左栏 -->
+    <aside id="sidebar" class="side-card">
+      <div class="profile">
+        <a href="#/" class="avatar"><img id="avatar" alt="avatar"></a>
+        <h1 id="authorName" class="author"></h1>
+        <p id="subtitle" class="subtitle"></p>
+      </div>
+      <nav id="menu" class="menu"></nav>
+      <section class="side-block tags-block">
+        <h3 class="side-title">标签</h3>
+        <div id="tagCloud" class="tag-cloud"></div>
+      </section>
+      <section class="side-block projects-block">
+        <h3 id="projectsTitle" class="side-title"></h3>
+        <ul id="projects" class="projects"></ul>
+      </section>
+      <div id="social" class="social"></div>
+    </aside>
+
+    <!-- 右栏 -->
+    <main class="main">
+      <div class="search-bar" id="searchBar">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input id="searchInput" type="search" autocomplete="off" placeholder="搜索文章…（按 / 或 Ctrl+K）">
+        <button id="searchClear" class="search-clear" aria-label="清空"><i class="fa-solid fa-xmark"></i></button>
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <div id="content"><div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> 加载中…</div></div>
+      <footer class="site-footer" id="footer"></footer>
+    </main>
+  </div>
+
+  <!-- 移动端抽屉 -->
+  <button id="drawerBtn" class="drawer-btn" aria-label="标签与项目"><i class="fa-solid fa-tags"></i></button>
+  <div id="drawerMask" class="drawer-mask"></div>
+  <aside id="drawer" class="drawer" aria-hidden="true">
+    <button id="drawerClose" class="drawer-close" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button>
+    <div id="drawerBody"></div>
+  </aside>
+
+  <button id="backTop" class="back-top" aria-label="返回顶部"><i class="fa-solid fa-arrow-up"></i></button>
+  <div id="toast" class="toast"></div>
+  <div id="llmPrompt" class="llm-prompt" aria-hidden="true"></div>
+</body>
+</html>
