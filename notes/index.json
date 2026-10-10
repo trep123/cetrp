@@ -1,5 +1,15 @@
 [
   "notes/Linux/Debian/2026-10-10-postfix-dovecot-roundcube.md",
+  "notes/Linux/RedHat/2024-03-27-01-服务与常用操作.md",
+  "notes/Linux/RedHat/2024-03-27-02-文件与目录管理.md",
+  "notes/Linux/RedHat/2024-03-27-03-软件包管理.md",
+  "notes/Linux/RedHat/2024-03-27-04-进程与系统状态.md",
+  "notes/Linux/RedHat/2024-03-27-05-用户与权限.md",
+  "notes/Linux/RedHat/2024-03-27-06-文件系统与磁盘.md",
+  "notes/Linux/RedHat/2024-03-27-07-Vim编辑器.md",
+  "notes/Linux/RedHat/2024-03-27-08-Bash与管道命令.md",
+  "notes/Linux/RedHat/2024-03-27-09-正则表达式与文本处理.md",
+  "notes/Linux/RedHat/2024-03-27-10-Shell脚本.md",
   "notes/main.md",
   "notes/WindowsServer/AD/2026-10-10-dsadd-user.md"
 ]
