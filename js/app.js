@@ -30,6 +30,7 @@
   let posts = [];               // 按日期倒序
   const bySlug = new Map();
   const tagMap = new Map();     // tag -> posts[]
+  const catMap = new Map();     // '前端/Vue' -> posts[]（父分类包含子分类文章）
   let tocCleanup = null;
 
   /* ---------- 工具 ---------- */
@@ -102,23 +103,30 @@
     const dateStr = (typeof meta.date === 'string' && meta.date) || (fm && fm[1]) || '';
     let date = dateStr ? new Date(dateStr.replace(/^(\d{4})-(\d{1,2})-(\d{1,2})/, (_, y, mo, d) => `${y}/${mo}/${d}`)) : null;
     if (date && isNaN(date)) date = null;
-    let tags = meta.tags ?? meta.tag ?? meta.categories ?? [];
+    let tags = meta.tags ?? meta.tag ?? [];
     if (typeof tags === 'string') tags = tags.split(/[,，\s]+/);
     tags = [...new Set(tags.map(t => String(t).trim()).filter(Boolean))];
     const folder = rel.split('/').slice(0, -1).join('/');
-    if (!tags.length && folder) tags = [folder.split('/')[0]];
+    // 分类：front matter 的 categories/category（列表 = 层级，或 "前端/Vue"），没有则用子目录
+    let category = meta.categories ?? meta.category ?? [];
+    if (typeof category === 'string') category = category.split('/');
+    category = category.flatMap(c => String(c).split('/')).map(c => c.trim()).filter(Boolean);
+    if (!category.length && folder) category = folder.split('/');
     // 正文首个 H1 与标题重复时去掉
     let content = body;
     if (h1 && h1[1] === title && body.trimStart().startsWith('#')) content = body.replace(h1[0], '');
     const plain = toPlain(content);
     return {
-      path, rel, slug: rel.replace(/\.md$/i, ''), title, date, tags, content,
+      path, rel, slug: rel.replace(/\.md$/i, ''), title, date, tags, category, content,
       excerpt: (typeof meta.description === 'string' && meta.description) || makeExcerpt(content),
       plain, words: countWords(plain),
     };
   }
   const postHref = p => '#/post/' + encPath(p.slug);
   const tagHref = t => '#/tag/' + encodeURIComponent(t);
+  const catHref = k => '#/category/' + encPath(k);
+  const catLink = p => p.category.length
+    ? `<a class="post-cat" href="${catHref(p.category.join('/'))}"><i class="fa-solid fa-folder-open"></i>${p.category.map(esc).join(' / ')}</a>` : '';
 
   /* ---------- 加载 ---------- */
   async function listFiles() {
@@ -162,10 +170,15 @@
     const texts = await pool(paths, 8, p => fetch(encPath(p)).then(r => (r.ok ? r.text() : null)));
     posts = paths.map((p, i) => (texts[i] == null ? null : buildPost(p, texts[i]))).filter(Boolean);
     posts.sort((a, b) => (b.date || 0) - (a.date || 0) || a.title.localeCompare(b.title, 'zh'));
-    bySlug.clear(); tagMap.clear();
+    bySlug.clear(); tagMap.clear(); catMap.clear();
     for (const p of posts) {
       bySlug.set(p.slug, p);
       for (const t of p.tags) { if (!tagMap.has(t)) tagMap.set(t, []); tagMap.get(t).push(p); }
+      p.category.forEach((_, i) => {
+        const k = p.category.slice(0, i + 1).join('/');
+        if (!catMap.has(k)) catMap.set(k, []);
+        catMap.get(k).push(p);
+      });
     }
   }
 
@@ -241,7 +254,7 @@
       </div>
       <div class="post-excerpt markdown">${excerptHtml(p)}</div>
       <div class="post-foot">
-        <div class="post-tags">${p.tags.map(t => tagChip(t)).join('')}</div>
+        <div class="post-tags">${catLink(p)}${p.tags.map(t => tagChip(t)).join('')}</div>
         <a class="read-more" href="${postHref(p)}">阅读全文 &gt;&gt;</a>
       </div>
     </article>`;
@@ -286,6 +299,15 @@
       <h2 class="page-title"><i class="fa-solid fa-tag"></i> ${esc(tag)}</h2><p class="page-sub">共 ${list.length} 篇</p>${archiveList(list)}</article>`;
     setTitle('标签：' + tag);
   }
+  function viewCategory(key) {
+    const list = catMap.get(key);
+    if (!list) return viewNotFound();
+    const parts = key.split('/');
+    const crumbs = parts.map((c, i) => i === parts.length - 1 ? esc(c) : `<a href="${catHref(parts.slice(0, i + 1).join('/'))}">${esc(c)}</a>`).join(' / ');
+    content().innerHTML = `<article class="post-card glow-in">
+      <h2 class="page-title"><i class="fa-solid fa-folder-open"></i> ${crumbs}</h2><p class="page-sub">共 ${list.length} 篇</p>${archiveList(list)}</article>`;
+    setTitle('分类：' + parts.join(' / '));
+  }
   function viewPost(slug) {
     const p = bySlug.get(slug);
     if (!p) return viewNotFound();
@@ -298,6 +320,7 @@
         <div class="post-meta">
           ${p.date ? `<span><i class="fa-solid fa-calendar-days"></i>${fmtDate(p.date)}</span>` : ''}
           ${C.readingTime ? `<span><i class="fa-solid fa-pen-nib"></i>${p.words.toLocaleString()} 字</span><span><i class="fa-regular fa-clock"></i>约 ${minutes} 分钟</span>` : ''}
+          ${p.category.length ? `<span><i class="fa-solid fa-folder-open"></i>${p.category.map((c, i) => `<a href="${catHref(p.category.slice(0, i + 1).join('/'))}">${esc(c)}</a>`).join(' / ')}</span>` : ''}
           <span><i class="fa-brands fa-github"></i><a href="${repoFileUrl(p)}" target="_blank" rel="noopener">源文件</a></span>
         </div>
         ${p.tags.length ? `<div class="post-tags">${p.tags.map(t => tagChip(t)).join('')}</div>` : ''}
@@ -384,7 +407,7 @@
     const kws = q.toLowerCase().split(/\s+/).filter(Boolean);
     const hits = [];
     for (const p of posts) {
-      const title = p.title.toLowerCase(), text = p.plain.toLowerCase(), tags = p.tags.join(' ').toLowerCase();
+      const title = p.title.toLowerCase(), text = p.plain.toLowerCase(), tags = p.tags.concat(p.category).join(' ').toLowerCase();
       if (!kws.every(k => title.includes(k) || text.includes(k) || tags.includes(k))) continue;
       const score = kws.reduce((s, k) => s + (title.includes(k) ? 10 : 0) + (tags.includes(k) ? 5 : 0) + (text.includes(k) ? 1 : 0), 0);
       const pos = Math.max(0, ...kws.map(k => text.indexOf(k)).filter(i => i >= 0).slice(0, 1));
@@ -458,10 +481,28 @@
     $('#footer').innerHTML = `© ${new Date().getFullYear()} ${esc(C.author || repo.owner)} · Theme inspired by <a href="https://github.com/wangshengithub/pixie" target="_blank" rel="noopener">Pixie</a>`;
     $('#llmPrompt').textContent = fill(C.llmPrompt || '', { url: location.origin + location.pathname });
   }
-  function renderTagCloud(active) {
+  function renderCats(active) {
+    const box = $('#catList');
+    if (!box) return;
+    const keys = [...catMap.keys()];
+    if (!keys.length) { box.innerHTML = '<li class="cat-empty">暂无分类</li>'; return; }
+    const tree = (prefix, depth) => keys
+      .filter(k => k.split('/').length === depth + 1 && (!prefix || k.startsWith(prefix + '/')))
+      .sort((a, b) => catMap.get(b).length - catMap.get(a).length || a.localeCompare(b, 'zh'))
+      .map(k => {
+        const kids = tree(k, depth + 1);
+        const on = active && (active === k || active.startsWith(k + '/'));
+        return `<li><a class="cat-item${active === k ? ' active' : on ? ' open' : ''}" href="${catHref(k)}">
+          <i class="fa-solid ${kids ? 'fa-folder' + (on ? '-open' : '') : 'fa-folder'}"></i><span class="cat-name">${esc(k.split('/').pop())}</span><span class="cat-num">${catMap.get(k).length}</span></a>
+          ${kids ? `<ul class="cat-sub">${kids}</ul>` : ''}</li>`;
+      }).join('');
+    box.innerHTML = tree('', 0);
+  }
+  function renderTagCloud(active, activeCat) {
+    renderCats(activeCat);
     const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length || a.localeCompare(b, 'zh'));
     $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:#888;font-size:13px">暂无标签</span>';
-    if (!tags.length && !C.projects?.length) $('#drawerBtn').style.display = 'none';
+    if (!tags.length && !catMap.size && !C.projects?.length) $('#drawerBtn').style.display = 'none';
     // 抽屉内容 = 标签 + 项目
     $('#drawerBody').innerHTML = $$('#sidebar .side-block').map(b => b.outerHTML).join('');
   }
@@ -510,14 +551,15 @@
     closeDrawer();
     $('#searchResults').classList.remove('open');
     const h = location.hash.replace(/^#/, '') || '/';
-    let m, activeTag;
+    let m, activeTag, activeCat;
     if (h === '/' || h === '') viewHome(1);
     else if ((m = h.match(/^\/page\/(\d+)$/))) viewHome(+m[1]);
     else if (h === '/archives') viewArchives();
     else if ((m = h.match(/^\/tag\/(.+)$/))) { activeTag = safeDecode(m[1]); viewTag(activeTag); }
+    else if ((m = h.match(/^\/category\/(.+)$/))) { activeCat = m[1].split('/').map(safeDecode).join('/'); viewCategory(activeCat); }
     else if ((m = h.match(/^\/post\/(.+)$/))) viewPost(m[1].split('/').map(safeDecode).join('/'));
     else viewNotFound();
-    renderTagCloud(activeTag);
+    renderTagCloud(activeTag, activeCat);
     markMenu();
     animateCards();
     scrollTo({ top: 0, behavior: 'instant' });

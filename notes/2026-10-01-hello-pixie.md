@@ -1,6 +1,7 @@
 ---
 title: 你好，Pixie 笔记
 date: 2026-10-01
+category: 随笔
 tags: [指南, 简介]
 ---
 
