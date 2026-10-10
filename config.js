@@ -6,7 +6,7 @@ window.PIXIE_CONFIG = {
   title: '我的笔记',                 // 浏览器标签标题
   author: 'Cetrp',              // 侧栏大字名字，也用于版权信息
   subtitle: '林',
-  avatar: '',                        // 留空 = 自动使用 GitHub 头像；也可填 'img/avatar.png'
+  avatar: 'img/Cetrp.png',                        // 留空 = 自动使用 GitHub 头像；也可填 'img/avatar.png'
 
   // 仓库信息：留空时在 <用户名>.github.io/<仓库> 上自动识别
   repo: { owner: '', name: '', branch: 'main', dir: 'notes' },
