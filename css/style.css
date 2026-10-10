@@ -300,6 +300,7 @@ mark { background: var(--orange); color: #111; border-radius: 3px; padding: 0 2p
   .post-head { flex-direction: column; gap: 4px; }
   .post-title { font-size: 21px; }
   .post-date { padding-top: 0; font-size: 13px; }
+  .post-side { flex-direction: row; align-items: center; gap: 14px; }
   .markdown { font-size: 15px; line-height: 1.75; }
   .code-block pre code { font-size: 13px; }
   .nf h1 { font-size: 96px; }
@@ -354,3 +355,21 @@ mark { background: var(--orange); color: #111; border-radius: 3px; padding: 0 2p
 .home-cats .cat-item .num { margin-left: 4px; }
 .home-tags { display: flex; flex-wrap: wrap; gap: 10px 18px; padding-left: 8px; margin: 14px 0; }
 .home-recent { margin: 10px 0; }
+
+/* ========== 访问次数 / 访问排行 ========== */
+.post-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.post-views { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.post-views i { margin-right: 6px; color: var(--teal); }
+.home-hot { list-style: none; padding: 0; margin: 10px 0; counter-reset: none; }
+.home-hot li { display: flex; align-items: center; gap: 12px; padding: 7px 4px; border-bottom: 1px dashed #3a3a3a; }
+.home-hot li:last-child { border-bottom: 0; }
+.home-hot a { flex: 1; min-width: 0; color: #e4e4e4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-hot a:hover { color: var(--orange); }
+.hot-rank { width: 24px; height: 24px; flex-shrink: 0; border-radius: 6px; background: #3a3a3a; color: #ddd;
+  font: 700 13px/24px var(--mono); text-align: center; }
+.hot-rank.r1 { background: #e74c3c; color: #fff; box-shadow: 0 0 10px rgba(231,76,60,.6); }
+.hot-rank.r2 { background: var(--orange); color: #111; }
+.hot-rank.r3 { background: var(--teal); color: #111; }
+.hot-num { color: var(--muted); font-size: 13px; font-family: var(--mono); white-space: nowrap; }
+.hot-num i { margin-right: 6px; color: var(--teal); }
+.home-hot-empty { color: var(--muted); }

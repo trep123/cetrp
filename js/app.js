@@ -204,6 +204,74 @@
     }
   }
 
+  /* ---------- 访问次数（第三方计数服务 Abacus，无需 Token、无需后端） ---------- */
+  // config.js: views: false 关闭；views: { namespace: 'xxx' } 自定义命名空间
+  const VC = C.views === false ? null : Object.assign({
+    api: 'https://abacus.jasoncameron.dev',
+    namespace: (location.hostname || 'local').replace(/[^A-Za-z0-9_.-]/g, '-').slice(0, 40),
+    ttl: 10 * 60 * 1000,              // 排行数据缓存 10 分钟，避免频繁请求
+  }, typeof C.views === 'object' ? C.views : {});
+  const views = new Map();            // slug -> 次数
+  let viewsAt = 0, viewsLoading = null;
+  const viewKey = slug => {           // FNV-1a，把任意路径转成合法的短 key
+    let h = 0x811c9dc5;
+    for (const ch of slug) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; }
+    return 'p-' + h.toString(36);
+  };
+  const viewUrl = (act, slug) => `${VC.api}/${act}/${encodeURIComponent(VC.namespace)}/${viewKey(slug)}`;
+  try {
+    const c = JSON.parse(localStorage.getItem('pixie-views') || 'null');
+    if (c && c.ns === VC?.namespace) { viewsAt = c.t; for (const [k, v] of Object.entries(c.d)) views.set(k, v); }
+  } catch { /* ignore */ }
+  const saveViews = () => { try { localStorage.setItem('pixie-views', JSON.stringify({ ns: VC.namespace, t: viewsAt, d: Object.fromEntries(views) })); } catch { /* ignore */ } };
+  async function viewReq(act, slug) {
+    const r = await fetch(viewUrl(act, slug));
+    if (r.status === 404) return 0;   // 还没有人访问过
+    if (!r.ok) throw new Error('views ' + r.status);
+    return (await r.json()).value | 0;
+  }
+  // 读取所有文章的次数（用于排行），失败时保留已有缓存
+  function loadAllViews(force) {
+    if (!VC) return Promise.resolve();
+    if (!force && Date.now() - viewsAt < VC.ttl && posts.every(p => views.has(p.slug))) return Promise.resolve();
+    return viewsLoading ||= (async () => {
+      let failed = false;
+      await pool(posts, 4, async p => {
+        if (failed) return;
+        try { views.set(p.slug, await viewReq('get', p.slug)); } catch { failed = true; }
+      });
+      if (!failed) viewsAt = Date.now();
+      saveViews();
+    })().finally(() => { viewsLoading = null; });
+  }
+  // 打开文章：同一会话里同一篇只计一次
+  async function countView(p) {
+    if (!VC) return;
+    const seenKey = 'pixie-seen:' + p.slug;
+    let n;
+    try {
+      if (sessionStorage.getItem(seenKey)) n = await viewReq('get', p.slug);
+      else { n = await viewReq('hit', p.slug); sessionStorage.setItem(seenKey, '1'); }
+      views.set(p.slug, n); saveViews();
+    } catch { n = views.get(p.slug); }
+    const el = $('#postViews');
+    if (el && el.dataset.slug === p.slug) el.textContent = n == null ? '—' : n.toLocaleString();
+  }
+  const viewsBadge = p => VC ? `<span class="post-views" data-slug="${esc(p.slug)}"><i class="fa-regular fa-eye"></i>${views.has(p.slug) ? views.get(p.slug).toLocaleString() : '—'}</span>` : '';
+  function paintViews() {
+    $$('.post-views[data-slug]').forEach(el => {
+      const n = views.get(el.dataset.slug);
+      if (n != null) el.lastChild.textContent = n.toLocaleString();
+    });
+    const hot = $('#homeHot');
+    if (hot) hot.innerHTML = hotList();
+  }
+  function hotList() {
+    const list = posts.filter(p => views.get(p.slug) > 0).sort((a, b) => views.get(b.slug) - views.get(a.slug)).slice(0, C.hotSize || 5);
+    if (!list.length) return `<li class="home-hot-empty">${views.size ? '还没有访问记录' : '统计加载中…'}</li>`;
+    return list.map((p, i) => `<li><span class="hot-rank r${i + 1}">${i + 1}</span><a href="${postHref(p)}">${esc(p.title)}</a><span class="hot-num"><i class="fa-regular fa-eye"></i>${views.get(p.slug).toLocaleString()}</span></li>`).join('');
+  }
+
   /* ---------- Markdown ---------- */
   function resolvePath(fromFile, rel) {
     if (!rel || /^([a-z][a-z0-9+.-]*:|\/\/|\/|#)/i.test(rel)) return null;
@@ -272,7 +340,10 @@
     return `<article class="post-card glow-in">
       <div class="post-head">
         <h2 class="post-title"><a href="${postHref(p)}">${esc(p.title)}</a></h2>
-        ${p.date ? `<time class="post-date"><i class="fa-solid fa-calendar-days"></i>${fmtDate(p.date)}</time>` : ''}
+        <div class="post-side">
+          ${p.date ? `<time class="post-date"><i class="fa-solid fa-calendar-days"></i>${fmtDate(p.date)}</time>` : ''}
+          ${viewsBadge(p)}
+        </div>
       </div>
       <div class="post-excerpt markdown">${excerptHtml(p)}</div>
       <div class="post-foot">
@@ -290,6 +361,7 @@
       stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${stat(tagMap.size, '标签')}${latest ? stat(fmtDate(latest.date), '最近更新') : ''}</div>`,
       categories: cats.length ? `<div class="home-cats">${cats.map(k => `<a class="cat-item" href="${catHref(k)}"><i class="fa-solid fa-folder"></i>${esc(k)}<span class="num">${catMap.get(k).length}</span></a>`).join('')}</div>` : '',
       recent: `<ul class="archive-list home-recent">${posts.slice(0, 5).map(p => `<li><time>${p.date ? fmtDate(p.date) : '--'}</time><a href="${postHref(p)}">${esc(p.title)}</a></li>`).join('')}</ul>`,
+      hot: VC ? `<ul class="home-hot" id="homeHot">${hotList()}</ul>` : '',
       tags: `<div class="home-tags">${[...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length).slice(0, 20).map(t => tagChip(t)).join('')}</div>`,
     };
   }
@@ -372,6 +444,7 @@
         <h1 class="post-title">${esc(p.title)}</h1>
         <div class="post-meta">
           ${p.date ? `<span><i class="fa-solid fa-calendar-days"></i>${fmtDate(p.date)}</span>` : ''}
+          ${VC ? `<span><i class="fa-regular fa-eye"></i><span id="postViews" data-slug="${esc(p.slug)}">${views.has(p.slug) ? views.get(p.slug).toLocaleString() : '—'}</span> 次阅读</span>` : ''}
           ${C.readingTime ? `<span><i class="fa-solid fa-pen-nib"></i>${p.words.toLocaleString()} 字</span><span><i class="fa-regular fa-clock"></i>约 ${minutes} 分钟</span>` : ''}
           ${p.category.length ? `<span><i class="fa-solid fa-folder-open"></i>${p.category.map((c, i) => `<a href="${catHref(p.category.slice(0, i + 1).join('/'))}">${esc(c)}</a>`).join(' / ')}</span>` : ''}
           <span><i class="fa-brands fa-github"></i><a href="${repoFileUrl(p)}" target="_blank" rel="noopener">源文件</a></span>
@@ -394,6 +467,7 @@
     renderMd(body, p.content, p);
     enhanceCode(body);
     if (C.toc) buildToc(body, $('.post-layout'));
+    countView(p);
     const btn = $('#copyLink');
     if (btn) btn.onclick = async () => {
       await copyText(fill(C.copyTemplate || '{title}\n{url}', { title: p.title, url: location.href }));
@@ -629,6 +703,7 @@
     renderTagCloud(activeTag);
     markMenu();
     animateCards();
+    if (VC && $('.post-views, #homeHot')) loadAllViews().then(paintViews);
     scrollTo({ top: 0, behavior: 'instant' });
   }
   const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
