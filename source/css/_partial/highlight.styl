@@ -1,0 +1,101 @@
+highlight-background = #282a36
+highlight-current-line = #44475a
+highlight-selection = #44475a
+highlight-foreground = #f8f8f2
+highlight-comment = #6272a4
+highlight-cyan = #8be9fd
+highlight-green = #50fa7b
+highlight-orange = #ffb86c
+highlight-pink = #ff79c6
+highlight-purple = #bd93f9
+highlight-red = #ff5555
+highlight-yellow = #f1fa8c
+
+$code-block
+  background: highlight-background
+  margin: 10px 0
+  padding: 12px 14px
+  overflow: auto
+  border: 1px solid highlight-current-line
+  border-radius: 6px
+  color: highlight-foreground
+  line-height: 1.5
+  font-size: 14px
+
+$line-numbers
+  color: highlight-comment
+  font-size: 0.9em
+
+.article-entry
+  pre, code
+    font-family: font-mono
+  code
+    background: #3a3a3a
+    text-shadow: none
+    padding: 2px 5px
+    border-radius: 3px
+    border: 1px solid #555
+    color: #EEF8FC
+    font-size: 14px
+  pre
+    @extend $code-block
+    color: highlight-foreground
+    code
+      background: none
+      text-shadow: none
+      padding: 0
+      border: none
+      color: highlight-foreground
+  .highlight
+    @extend $code-block
+    margin: 10px 0
+    pre
+      border: none
+      margin: 0
+      padding: 0
+      background: none
+    table
+      margin: 0
+      width: auto
+    td
+      border: none
+      padding: 0
+    figcaption
+      clearfix()
+      font-size: 0.85em
+      color: highlight-comment
+      line-height: 1em
+      margin-bottom: 1em
+      a
+        float: right
+        color: highlight-cyan
+    .gutter pre
+      @extend $line-numbers
+      text-align: right
+      padding-right: 20px
+      .line
+        text-shadow: none
+    .line
+      font-size: 14px
+      height: 21px
+
+.highlight
+  .comment, .quote, .doctype
+    color: highlight-comment
+    font-style: italic
+  .keyword, .literal, .symbol, .selector, .built_in, .type, .name, .meta-keyword, .section
+    color: highlight-pink
+  .string, .attribute, .regexp, .addition, .value, .cdata, .meta-string, .inheritance
+    color: highlight-yellow
+  .number, .constant, .literal
+    color: highlight-purple
+  .function, .title, .class .title, .decorator, .python .decorator, .python .title, .ruby .function .title, .ruby .title .keyword, .perl .sub, .javascript .title, .coffeescript .title
+    color: highlight-green
+  .variable, .tag, .attr, .property, .ruby .constant, .xml .tag .title, .xml .pi, .html .doctype, .css .id, .css .class, .css .pseudo
+    color: highlight-red
+  .meta, .meta .keyword
+    color: highlight-cyan
+  .deletion
+    color: highlight-red
+  .addition
+    color: highlight-green

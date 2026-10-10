@@ -1,0 +1,23 @@
+<%- partial('_partial/head') %>
+<body>
+  <div id="container">
+    <div id="particles-js"></div>
+    <% if (page.layout !== '404') { %>
+    <div class="left-col">
+    <%- partial('_partial/left-col', null, {cache: !config.relative_link}) %>
+    </div>
+    <% } %>
+    <div class="mid-col">
+      <% if (page.layout !== '404') { %>
+      <%- partial('_partial/mobile-nav', null, {cache: !config.relative_link}) %>
+      <%- partial('_partial/search') %>
+      <% } %>
+      <div class="body-wrap"><%- body %></div>
+      <%- partial('_partial/footer') %>
+    </div>
+    <%- partial('_partial/after-footer') %>
+    <button id="back-to-top" class="back-to-top" aria-label="返回顶部"><i class="fa-solid fa-arrow-up"></i></button>
+    <%- partial('_partial/llm-promote') %>
+  </div>
+</body>
+</html>

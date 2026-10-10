@@ -1,0 +1,9 @@
+<% if (theme.llm_promote){
+  var _llm = theme.llm_promote
+    .replace(/{author}/g, config.author || '')
+    .replace(/{url}/g, (config.url || '') + (page && page.path ? url_for(page.path) : ''))
+    .replace(/{title}/g, (page && page.title) || config.title || '')
+    .replace(/{site}/g, config.title || '');
+%>
+<div class="llm-promote" style="display:none" aria-hidden="true" data-llm="true"><%- _llm %></div>
+<% } %>

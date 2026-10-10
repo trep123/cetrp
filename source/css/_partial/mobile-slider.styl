@@ -1,0 +1,111 @@
+#viewer{
+	position: fixed;
+	z-index: 1000000;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	overflow: hidden;
+}
+#viewer-box{
+	width: 100%;
+	height: 100%;
+	position: relative;
+	color: #ccc;
+	transform: translate3d(-100%, 0, 0);
+	transition: transform .25s ease-in-out;
+	-webkit-transform: translate3d(-100%, 0, 0);
+	-webkit-transition: -webkit-transform .25s ease-in-out;
+	.viewer-box-l{
+		background: linear-gradient(180deg, rgba(32,32,32,.98), rgba(20,20,20,.98));
+		width: 82%;
+		height: 100%;
+		float: left;
+		overflow-y: auto;
+		border-right: 1px solid rgba(255,165,0,.25);
+		box-shadow: 4px 0 30px rgba(0,0,0,.5);
+		.viewer-header{
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 16px 18px;
+			border-bottom: 1px solid #444;
+			.viewer-header-title{
+				color: #00FFCC;
+				font-size: 16px;
+				font-weight: bold;
+				text-shadow: 0 0 6px rgba(0,255,204,.4);
+			}
+			.viewer-close{
+				color: #aaa;
+				font-size: 20px;
+				cursor: pointer;
+				padding: 4px 10px;
+				border-radius: 4px;
+				transition: .2s;
+				&:hover{ color: orange; background: rgba(255,165,0,.12); }
+			}
+		}
+		.viewer-box-wrap{
+			padding: 6px 14px 24px;
+		}
+		.viewer-title{
+			color: orange;
+			font-size: 14px;
+			font-weight: bold;
+			margin: 18px 0 12px;
+			display: block;
+			&:before{
+				content: "▸ ";
+				color: #00FFCC;
+				margin-right: 4px;
+			}
+		}
+		.viewer-div{
+			border-bottom: 1px dotted #444;
+			padding-bottom: 14px;
+			margin-bottom: 6px;
+			&:last-child{ border-bottom: none; }
+			.tagcloud{ line-height: 2.2; padding-left: 4px;
+				&:after{ content:""; display:block; clear:both; }
+			}
+			/#js-mobile-toys{
+				list-style: none;
+				padding: 0;
+				margin: 0;
+				li{
+					margin: 8px 0;
+					a{
+						display: block;
+						padding: 9px 12px;
+						color: #ddd;
+						font-size: 14px;
+						background: rgba(255,255,255,.04);
+						border-left: 3px solid rgba(255,165,0,.45);
+						border-radius: 4px;
+						transition: .2s;
+						&:hover{
+							background: rgba(255,165,0,.14);
+							color: orange;
+							border-left-color: orange;
+						}
+					}
+				}
+			}
+		}
+	}
+	.viewer-box-r{
+		background: rgba(0,0,0,0);
+		width: 18%;
+		height: 100%;
+		float: right;
+		cursor: pointer;
+	}
+}
+#viewer-box.anm-swipe{
+	transform: translate3d(0, 0, 0);
+	-webkit-transform: translate3d(0, 0, 0);
+}
+.hide{
+	display: none;
+}

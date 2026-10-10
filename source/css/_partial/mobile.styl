@@ -1,0 +1,184 @@
+/html, /body{
+    overflow-x: hidden;
+}
+.left-col {
+    display: none;
+}
+.mid-col {
+    left: 0;
+}
+#header{
+    .header-nav{
+        position: relative;
+    }
+}
+.header-author{
+    &.fixed{
+        position: fixed;
+        top: -13px;
+        width: 100%;
+        color: #ddd;
+    }
+}
+.overlay{
+    .slider-trigger{
+        position: absolute;
+        z-index: 101;
+        bottom: 0;
+        left: 0;
+        width: 48px;
+        height: 48px;
+        &:hover{ background: #444; }
+        &:before{
+            color: #ddd;
+            content: "\f00b";
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            font-size: 20px;
+            margin-left: 14px;
+            margin-top: 16px;
+            display: block;
+        }
+    }
+}
+.article-header{
+    padding-top: 0;
+    padding-bottom: 0;
+    border-top-left-radius: 0;
+    border-bottom: 1px dotted #555;
+    h1{ margin-bottom: 10px; }
+}
+.header-subtitle{
+    padding: 0 24px;
+}
+.article-info-index.article-info{
+    padding-top: 10px;
+    margin: 0;
+    border-top: 1px solid #555;
+}
+.article-info-post.article-info{
+    margin: 0;
+    padding-top: 10px;
+    border: none;
+}
+.article-more-link{
+    a{ float: right; }
+}
+#viewer-box .viewer-box-l{
+    font-size: 14px;
+}
+.article{
+    padding: 10px;
+    margin: 10px;
+    font-size: 15px;
+    .article-entry{
+        padding-left: 0;
+        padding-right: 0;
+        padding-top: 10px;
+    }
+    .article-title{
+        font-size: 18px;
+        max-width: 100%;
+        display: block;
+        margin: 0;
+    }
+    .article-meta{
+        width: auto;
+        height: 30px;
+        margin-top: -5px;
+        position: relative;
+        .article-date{
+            font-size: 12px;
+            border-radius: 0;
+            color: #aaa;
+            background: none;
+            height: auto;
+            padding: 0;
+            margin: 0;
+            width: 100%;
+            text-align: left;
+            margin-left: 10px;
+            time{
+                width: auto;
+                float: right;
+                margin-right: 10px;
+            }
+        }
+    }
+    #article-nav{
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 10px 30px;
+        .article-nav-card{ flex: none; width: 100%; }
+        .nav-next{ text-align: left; .nav-content{ align-items: flex-start; } }
+    }
+}
+#mobile-nav{
+    display: block;
+}
+#mobile-nav #header .header-menu{
+    li{ margin: 4px; a{ width: auto; min-width: 0; padding: 6px 14px; white-space: nowrap; } }
+}
+#page-nav .extend{
+    opacity: 1;
+}
+.info-on-right{
+    float: initial;
+}
+.archives-wrap{
+    margin: 10px 10px 0px;
+    padding: 10px;
+    .archive-article-title{ font-size: 14px; }
+    .archive-year-wrap{
+        position: relative;
+        padding: 0;
+        a{ padding: 0; }
+    }
+    .article-meta{
+        .archive-article-date{ font-size: 12px; margin-right: 10px; margin-top: -5px; }
+        .article-tag-list-link{ font-size: 12px; }
+    }
+}
+.archives{
+    .archive-article{
+        padding: 10px 0;
+        margin-left: 0;
+    }
+}
+.search-bar{
+    margin: 12px 10px 16px;
+    height: 44px;
+}
+.search-bar .search-input{ font-size: 16px; }
+.search-bar .search-input::placeholder{ color: #bbb; }
+.post-toc{ margin: 0 0 14px; }
+.post-meta-extra{ margin: 0 0 12px; }
+.copy-link-wrap{ margin: 10px 0 16px; }
+.back-to-top{
+    right: 16px;
+    bottom: 16px;
+    width: 38px;
+    height: 38px;
+    line-height: 38px;
+    font-size: 16px;
+}
+#footer {
+    text-align: center;
+    .footer-left{ float: initial; margin-bottom: 6px; }
+    .footer-right{
+        float: initial;
+        .ft-hexo, .ft-theme{ display: block; }
+        .ft-sep{ display: none; }
+    }
+}
+.article .article-entry{ line-height: 1.75; }
+.article-info-index{
+    .article-tag, .article-category{ display: none; }   
+}
+.header-author{ margin-bottom: 6px; }
+.header-subtitle{ margin-top: 4px; }
+.post-meta-extra{ font-size: 14px; }
+.article .article-meta .article-date{ font-size: 14px; }
+#footer{ font-size: 14px; }
+.article{ visibility: visible !important; }
+.article.hidden{ visibility: visible !important; }

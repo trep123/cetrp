@@ -1,0 +1,11 @@
+{
+  "name": "hexo-theme-pixie",
+  "version": "1.1.0",
+  "description": "Pixie - 深色霓虹风格的 Hexo 博客主题：双栏布局、粒子背景、卡片发光动画，内置本地搜索、TOC、LLM 版权提示词等。",
+  "private": true,
+  "dependencies": {
+    "hexo-renderer-ejs": "*",
+    "hexo-renderer-stylus": "*",
+    "hexo-renderer-marked": "*"
+  }
+}

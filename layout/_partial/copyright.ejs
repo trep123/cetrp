@@ -1,0 +1,5 @@
+<div class="article-copyright">
+  <div class="copyright-row"><i class="fa-solid fa-user"></i> 作者：<%= config.author || config.title %></div>
+  <div class="copyright-row"><i class="fa-solid fa-link"></i> 链接：<a href="<%- config.url + url_for(page.path) %>"><%= config.url + url_for(page.path) %></a></div>
+  <div class="copyright-row"><i class="fa-solid fa-scale-balanced"></i> 许可：<%= theme.copy_license || 'CC-BY-NC-SA 4.0' %></div>
+</div>
