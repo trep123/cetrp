@@ -119,7 +119,11 @@
       plain, words: countWords(plain),
     };
   }
-  const postHref = p => '#/post/' + encPath(p.slug);
+  // 文章链接用路径哈希生成的短 ID（#/p/xxxxxxxxxx），不暴露中文目录/文件名；config 里 urlMode: 'path' 可恢复旧格式
+  const byId = new Map();
+  const hashId = (str, seed) => { let h = seed >>> 0; for (const ch of str) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193) >>> 0; } return h; };
+  const makeId = slug => (hashId(slug, 0x811c9dc5).toString(36).padStart(7, '0') + hashId(slug, 0x9e3779b9).toString(36).padStart(7, '0')).slice(0, 10);
+  const postHref = p => C.urlMode === 'path' ? '#/post/' + encPath(p.slug) : '#/p/' + p.id;
   const tagHref = t => '#/tag/' + encodeURIComponent(t);
   const catHref = k => '#/category/' + encPath(k);
   const catLink = p => p.category.length
@@ -192,9 +196,12 @@
     const texts = await pool(paths, 8, p => fetch(encPath(p)).then(r => (r.ok ? r.text() : null)));
     posts = paths.map((p, i) => (texts[i] == null ? null : buildPost(p, texts[i]))).filter(Boolean);
     posts.sort((a, b) => (b.date || 0) - (a.date || 0) || a.title.localeCompare(b.title, 'zh'));
-    bySlug.clear(); tagMap.clear(); catMap.clear();
+    bySlug.clear(); byId.clear(); tagMap.clear(); catMap.clear();
     for (const p of posts) {
       bySlug.set(p.slug, p);
+      let id = makeId(p.slug), n = 1;
+      while (byId.has(id)) id = makeId(p.slug + '#' + n++);
+      p.id = id; byId.set(id, p);
       for (const t of p.tags) { if (!tagMap.has(t)) tagMap.set(t, []); tagMap.get(t).push(p); }
       p.category.forEach((_, i) => {
         const k = p.category.slice(0, i + 1).join('/');
@@ -773,7 +780,12 @@
     else if ((m = h.match(/^\/tag\/(.+)$/))) { activeTag = safeDecode(m[1]); viewTag(activeTag); }
     else if (h === '/categories') viewCategories();
     else if ((m = h.match(/^\/category\/(.+)$/))) { activeCat = m[1].split('/').map(safeDecode).join('/'); viewCategory(activeCat); }
-    else if ((m = h.match(/^\/post\/(.+)$/))) viewPost(m[1].split('/').map(safeDecode).join('/'));
+    else if ((m = h.match(/^\/p\/([0-9a-z]+)$/))) { const p = byId.get(m[1]); p ? viewPost(p.slug) : viewNotFound(); }
+    else if ((m = h.match(/^\/post\/(.+)$/))) {
+      const slug = m[1].split('/').map(safeDecode).join('/'), p = bySlug.get(slug);
+      if (p && C.urlMode !== 'path') { history.replaceState(null, '', postHref(p)); viewPost(slug); }  // 旧链接自动换成短链接
+      else viewPost(slug);
+    }
     else viewNotFound();
     renderTagCloud(activeTag);
     markMenu();
