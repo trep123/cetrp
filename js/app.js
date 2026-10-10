@@ -107,11 +107,8 @@
     if (typeof tags === 'string') tags = tags.split(/[,，\s]+/);
     tags = [...new Set(tags.map(t => String(t).trim()).filter(Boolean))];
     const folder = rel.split('/').slice(0, -1).join('/');
-    // 分类：front matter 的 categories/category（列表 = 层级，或 "前端/Vue"），没有则用子目录
-    let category = meta.categories ?? meta.category ?? [];
-    if (typeof category === 'string') category = category.split('/');
-    category = category.flatMap(c => String(c).split('/')).map(c => c.trim()).filter(Boolean);
-    if (!category.length && folder) category = folder.split('/');
+    // 分类 = 所在目录（自动识别），notes/ 根目录下的文章不属于任何分类
+    const category = folder ? folder.split('/') : [];
     // 正文首个 H1 与标题重复时去掉
     let content = body;
     if (h1 && h1[1] === title && body.trimStart().startsWith('#')) content = body.replace(h1[0], '');
@@ -129,6 +126,20 @@
     ? `<a class="post-cat" href="${catHref(p.category.join('/'))}"><i class="fa-solid fa-folder-open"></i>${p.category.map(esc).join(' / ')}</a>` : '';
 
   /* ---------- 加载 ---------- */
+  // 公开仓库无需 Token：GitHub API（每 IP 每小时 60 次）→ jsDelivr（无频率限制）
+  async function listViaGitHub() {
+    const ref = repo.branch || 'HEAD';   // HEAD = 默认分支，main / master 都能识别
+    const r = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.name}/git/trees/${encodeURIComponent(ref)}?recursive=1`);
+    if (!r.ok) throw new Error('GitHub API ' + r.status);
+    return (await r.json()).tree.filter(x => x.type === 'blob').map(x => x.path);
+  }
+  async function listViaJsDelivr() {
+    for (const ref of repo.branch ? [repo.branch] : ['main', 'master']) {
+      const r = await fetch(`https://data.jsdelivr.com/v1/packages/gh/${repo.owner}/${repo.name}@${encodeURIComponent(ref)}?structure=flat`);
+      if (r.ok) return (await r.json()).files.map(f => f.name.replace(/^\//, ''));
+    }
+    throw new Error('jsDelivr 失败');
+  }
   async function listFiles() {
     const isNote = p => p.startsWith(repo.dir + '/') && /\.md$/i.test(p) &&
       !p.split('/').some(s => s.startsWith('_') || s.startsWith('.')) && !/\/readme\.md$/i.test(p);
@@ -136,15 +147,16 @@
     if (cached && Date.now() - cached.t < 5 * 60 * 1000) return cached.paths;
     try {
       if (!repo.owner || !repo.name) throw new Error('未配置仓库');
-      const r = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.name}/git/trees/${encodeURIComponent(repo.branch)}?recursive=1`);
-      if (!r.ok) throw new Error('GitHub API ' + r.status);
-      const paths = (await r.json()).tree.filter(x => x.type === 'blob' && isNote(x.path)).map(x => x.path);
+      const paths = await listViaGitHub().catch(e => {
+        console.warn('[pixie] GitHub API 失败，改用 jsDelivr', e);
+        return listViaJsDelivr();
+      }).then(list => list.filter(isNote));
       const v = JSON.stringify({ t: Date.now(), paths });
       sessionStorage.setItem(CACHE_KEY, v);
       localStorage.setItem(CACHE_KEY, v);
       return paths;
     } catch (e) {
-      console.warn('[pixie] API 列表失败，尝试 index.json', e);
+      console.warn('[pixie] 在线列表失败，尝试 index.json', e);
       try {
         const r = await fetch(`${encPath(repo.dir)}/index.json?t=${Date.now()}`);
         if (!r.ok) throw new Error('index.json ' + r.status);
@@ -300,10 +312,10 @@
     setTitle('标签：' + tag);
   }
   function viewCategories() {
-    const tops = [...catMap.keys()].filter(k => !k.includes('/'));
+    const root = buildTree();
     content().innerHTML = `<article class="post-card glow-in">
-      <h2 class="page-title">分类</h2><p class="page-sub">共 ${tops.length} 个分类</p>
-      <ul class="cat-list cat-page">${catTreeHtml()}</ul></article>`;
+      <h2 class="page-title">分类</h2><p class="page-sub">${root.dirs.size} 个分类 · ${root.count} 篇文章</p>
+      <div class="tree-box">${treeHtml(root) || '<p class="cat-empty">还没有文章</p>'}</div></article>`;
     setTitle('分类');
   }
   function viewCategory(key) {
@@ -312,7 +324,8 @@
     const parts = key.split('/');
     const crumbs = parts.map((c, i) => i === parts.length - 1 ? esc(c) : `<a href="${catHref(parts.slice(0, i + 1).join('/'))}">${esc(c)}</a>`).join(' / ');
     content().innerHTML = `<article class="post-card glow-in">
-      <h2 class="page-title"><a href="#/categories">分类</a> / ${crumbs}</h2><p class="page-sub">共 ${list.length} 篇</p>${archiveList(list)}</article>`;
+      <h2 class="page-title"><a href="#/categories">分类</a> / ${crumbs}</h2><p class="page-sub">共 ${list.length} 篇</p>
+      <div class="tree-box">${treeHtml(findNode(buildTree(), key))}</div></article>`;
     setTitle('分类：' + parts.join(' / '));
   }
   function viewPost(slug) {
@@ -488,20 +501,34 @@
     $('#footer').innerHTML = `© ${new Date().getFullYear()} ${esc(C.author || repo.owner)} · Theme inspired by <a href="https://github.com/wangshengithub/pixie" target="_blank" rel="noopener">Pixie</a>`;
     $('#llmPrompt').textContent = fill(C.llmPrompt || '', { url: location.origin + location.pathname });
   }
-  function catTreeHtml(active) {
-    const keys = [...catMap.keys()];
-    if (!keys.length) return '<li class="cat-empty">暂无分类。在 front matter 写 categories，或把笔记放进子目录。</li>';
-    const tree = (prefix, depth) => keys
-      .filter(k => k.split('/').length === depth + 1 && (!prefix || k.startsWith(prefix + '/')))
-      .sort((a, b) => catMap.get(b).length - catMap.get(a).length || a.localeCompare(b, 'zh'))
-      .map(k => {
-        const kids = tree(k, depth + 1);
-        const on = active && (active === k || active.startsWith(k + '/'));
-        return `<li><a class="cat-item${active === k ? ' active' : on ? ' open' : ''}" href="${catHref(k)}">
-          <i class="fa-solid ${kids ? 'fa-folder' + (on ? '-open' : '') : 'fa-folder'}"></i><span class="cat-name">${esc(k.split('/').pop())}</span><span class="cat-num">${catMap.get(k).length}</span></a>
-          ${kids ? `<ul class="cat-sub">${kids}</ul>` : ''}</li>`;
-      }).join('');
-    return tree('', 0);
+  // 目录树：按 notes/ 的真实目录结构生成，文件夹在前、文章在后
+  function buildTree() {
+    const root = { name: '', key: '', dirs: new Map(), files: [], count: 0 };
+    for (const p of posts) {
+      let node = root; root.count++;
+      p.category.forEach((seg, i) => {
+        if (!node.dirs.has(seg)) node.dirs.set(seg, { name: seg, key: p.category.slice(0, i + 1).join('/'), dirs: new Map(), files: [], count: 0 });
+        node = node.dirs.get(seg); node.count++;
+      });
+      node.files.push(p);
+    }
+    return root;
+  }
+  function findNode(root, key) {
+    let node = root;
+    for (const seg of key ? key.split('/') : []) { node = node.dirs.get(seg); if (!node) return null; }
+    return node;
+  }
+  function treeHtml(node) {
+    const dirs = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+    const files = [...node.files].sort((a, b) => (b.date || 0) - (a.date || 0) || a.title.localeCompare(b.title, 'zh'));
+    if (!dirs.length && !files.length) return '';
+    return `<ul class="tree">${dirs.map(d => `<li class="tree-dir"><details open>
+        <summary><i class="tree-caret fa-solid fa-chevron-right"></i><i class="fa-solid fa-folder tree-ico"></i>
+          <a class="tree-name" href="${catHref(d.key)}">${esc(d.name)}</a><span class="cat-num">${d.count}</span></summary>
+        ${treeHtml(d)}</details></li>`).join('')}${files.map(p => `<li class="tree-file">
+        <a href="${postHref(p)}"><i class="fa-regular fa-file-lines tree-ico"></i><span class="tree-title">${esc(p.title)}</span>
+        <span class="tree-date">${p.date ? fmtDate(p.date) : ''}</span></a></li>`).join('')}</ul>`;
   }
   function renderTagCloud(active) {
     const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length || a.localeCompare(b, 'zh'));

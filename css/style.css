@@ -317,3 +317,27 @@ mark { background: var(--orange); color: #111; border-radius: 3px; padding: 0 2p
   body.drawer-open { overflow: hidden; }
   .drawer-close { position: absolute; right: 12px; top: 10px; background: none; border: 0; color: #bbb; font-size: 22px; cursor: pointer; }
 }
+
+/* ---------- 目录树 ---------- */
+.tree-box { max-width: 640px; padding: 6px 0 4px; text-align: left; }
+.tree { list-style: none; margin: 0; padding: 0; }
+.tree .tree { margin-left: 11px; padding-left: 14px; border-left: 1px dashed #4a4a4a; }
+.tree li { position: relative; }
+.tree .tree > li::before { content: ''; position: absolute; left: -14px; top: 17px; width: 10px; border-top: 1px dashed #4a4a4a; }
+.tree summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 6px 10px; margin: 2px 0;
+  border-radius: 8px; cursor: pointer; user-select: none; transition: background .2s, box-shadow .2s; }
+.tree summary::-webkit-details-marker { display: none; }
+.tree summary:hover { background: #1f1f1f; box-shadow: 0 0 0 1px rgba(31,209,181,.4); }
+.tree-caret { width: 12px; font-size: 11px; color: #888; transition: transform .2s; }
+.tree details[open] > summary .tree-caret { transform: rotate(90deg); color: var(--teal); }
+.tree-ico { width: 16px; text-align: center; font-size: 14px; }
+.tree-dir .tree-ico { color: var(--orange); }
+.tree details[open] > summary .fa-folder::before { content: "\f07c"; }
+.tree-name { flex: 1; color: #eee; font-weight: 600; }
+.tree-name:hover { color: var(--teal); }
+.tree-file a { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 30px; margin: 1px 0; border-radius: 8px; color: #ccc; }
+.tree-file .tree-ico { color: var(--teal); }
+.tree-file a:hover { background: #1f1f1f; color: var(--teal); }
+.tree-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-date { color: #777; font-size: 12px; font-family: var(--mono, monospace); }
+@media (max-width: 600px) { .tree-date { display: none; } .tree .tree { margin-left: 6px; padding-left: 10px; } }
