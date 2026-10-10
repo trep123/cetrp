@@ -523,7 +523,7 @@
     const dirs = [...node.dirs.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh'));
     const files = [...node.files].sort((a, b) => (b.date || 0) - (a.date || 0) || a.title.localeCompare(b.title, 'zh'));
     if (!dirs.length && !files.length) return '';
-    return `<ul class="tree">${dirs.map(d => `<li class="tree-dir"><details open>
+    return `<ul class="tree">${dirs.map(d => `<li class="tree-dir"><details>
         <summary><i class="tree-caret fa-solid fa-chevron-right"></i><i class="fa-solid fa-folder tree-ico"></i>
           <a class="tree-name" href="${catHref(d.key)}">${esc(d.name)}</a><span class="cat-num">${d.count}</span></summary>
         ${treeHtml(d)}</details></li>`).join('')}${files.map(p => `<li class="tree-file">
