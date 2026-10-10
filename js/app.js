@@ -293,6 +293,70 @@
       const slug = p.slice(repo.dir.length + 1).replace(/\.md$/i, '');
       a.href = /\.md$/i.test(p) && bySlug.has(slug) ? postHref(bySlug.get(slug)) : encPath(p);
     });
+    // 表格外包一层，窄屏可横向滚动
+    $$('table', el).forEach(t => {
+      if (t.parentElement.classList.contains('table-wrap')) return;
+      const w = document.createElement('div'); w.className = 'table-wrap';
+      t.replaceWith(w); w.append(t);
+    });
+    decorateCallouts(el);
+  }
+  // 提示框：> **提示** xxx / > **注意：** xxx / > [!NOTE] xxx
+  const CALLOUTS = [
+    [/^(提示|技巧|tip|hint|success)$/i, 'tip', 'fa-lightbulb'],
+    [/^(注意|警告|warning|caution|attention)$/i, 'warn', 'fa-triangle-exclamation'],
+    [/^(危险|错误|重要|danger|error|important)$/i, 'danger', 'fa-circle-exclamation'],
+    [/^(说明|备注|信息|笔记|note|info)$/i, 'note', 'fa-circle-info'],
+  ];
+  function decorateCallouts(el) {
+    $$('blockquote', el).forEach(bq => {
+      const p = bq.firstElementChild;
+      if (!p || p.tagName !== 'P') return;
+      let label = '', kind = null;
+      const gh = p.firstChild?.nodeType === 3 && p.firstChild.textContent.match(/^\s*\[!(\w+)\]\s*/);
+      const strong = p.firstElementChild?.tagName === 'STRONG' && !p.firstChild.textContent.trim() ? p.firstElementChild
+        : (p.firstChild === p.firstElementChild && p.firstElementChild?.tagName === 'STRONG' ? p.firstElementChild : null);
+      if (gh) label = gh[1];
+      else if (strong) label = strong.textContent.trim().replace(/[:：\s]+$/, '');
+      else return;
+      for (const [re, k] of CALLOUTS) if (re.test(label)) { kind = CALLOUTS.find(c => c[1] === k); break; }
+      if (!kind) return;
+      const names = { tip: '提示', warn: '注意', danger: '重要', note: '说明' };
+      const title = document.createElement('div');
+      title.className = 'callout-title';
+      if (gh) {
+        p.firstChild.textContent = p.firstChild.textContent.slice(gh[0].length);
+        title.innerHTML = `<i class="fa-solid ${kind[2]}"></i><strong>${names[kind[1]]}</strong>`;
+      } else {
+        strong.remove();
+        title.innerHTML = `<i class="fa-solid ${kind[2]}"></i><strong>${esc(label)}</strong>`;
+        if (p.firstChild?.nodeType === 3) p.firstChild.textContent = p.firstChild.textContent.replace(/^[\s:：]+/, '');
+        if (p.firstChild?.nodeName === 'BR') p.firstChild.remove();
+      }
+      if (!p.textContent.trim() && !p.querySelector('img')) p.remove();
+      bq.classList.add('callout', 'callout-' + kind[1]);
+      bq.prepend(title);
+    });
+  }
+  // 标题 id + hover 显示的 # 锚点
+  function anchorHeadings(body) {
+    const used = new Set();
+    $$('h2, h3, h4', body).forEach((h, i) => {
+      h.dataset.text = h.textContent.trim();
+      let id = 'h-' + (h.dataset.text.toLowerCase().replace(/[^\w\u3400-\u9fff]+/g, '-').replace(/^-|-$/g, '') || i);
+      while (used.has(id)) id += '-' + i;
+      used.add(id); h.id = id;
+      const a = document.createElement('a');
+      a.className = 'h-anchor'; a.href = '#'; a.dataset.id = id; a.textContent = '#';
+      a.setAttribute('aria-label', '定位到此标题');
+      h.append(a);
+    });
+    body.addEventListener('click', e => {
+      const a = e.target.closest('.h-anchor');
+      if (!a) return;
+      e.preventDefault();
+      document.getElementById(a.dataset.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
   function enhanceCode(el) {
     $$('pre > code', el).forEach(code => {
@@ -466,6 +530,7 @@
     const body = $('#postBody');
     renderMd(body, p.content, p);
     enhanceCode(body);
+    anchorHeadings(body);
     if (C.toc) buildToc(body, $('.post-layout'));
     countView(p);
     const btn = $('#copyLink');
@@ -485,16 +550,10 @@
   function buildToc(body, layout) {
     const hs = $$('h2, h3, h4', body);
     if (hs.length < 2) return;
-    const used = new Set();
-    hs.forEach((h, i) => {
-      let id = 'h-' + (h.textContent.trim().toLowerCase().replace(/[^\w\u3400-\u9fff]+/g, '-').replace(/^-|-$/g, '') || i);
-      while (used.has(id)) id += '-' + i;
-      used.add(id); h.id = id;
-    });
     const toc = document.createElement('nav');
     toc.className = 'toc' + (innerWidth < 1280 ? ' collapsed' : '');
     toc.innerHTML = `<div class="toc-head"><span><i class="fa-solid fa-list-ul"></i> 目录</span><i class="fa-solid fa-chevron-down"></i></div>
-      <ul class="toc-list">${hs.map(h => `<li class="lv${h.tagName[1]}"><a href="#" data-id="${h.id}">${esc(h.textContent)}</a></li>`).join('')}</ul>`;
+      <ul class="toc-list">${hs.map(h => `<li class="lv${h.tagName[1]}"><a href="#" data-id="${h.id}">${esc(h.dataset.text ?? h.textContent)}</a></li>`).join('')}</ul>`;
     layout.classList.add('has-toc');
     if (innerWidth >= 1280) layout.append(toc); else layout.prepend(toc);
     $('.toc-head', toc).onclick = () => toc.classList.toggle('collapsed');
@@ -639,7 +698,7 @@
   }
   function renderTagCloud(active) {
     const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length || a.localeCompare(b, 'zh'));
-    $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:#888;font-size:13px">暂无标签</span>';
+    $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:var(--muted);font-size:13px">暂无标签</span>';
     if (!tags.length && !C.projects?.length) $('#drawerBtn').style.display = 'none';
     // 抽屉内容 = 标签 + 项目
     $('#drawerBody').innerHTML = $$('#sidebar .side-block').map(b => b.outerHTML).join('');
@@ -669,11 +728,15 @@
   function setTitle(sub) { document.title = sub ? `${sub} | ${C.title || C.author}` : (C.title || C.author || 'Notes'); }
   function animateCards() {
     const cards = $$('.glow-in');
-    if (!('IntersectionObserver' in window)) return cards.forEach(c => c.classList.add('visible'));
+    if (!('IntersectionObserver' in window)) return cards.forEach(c => c.classList.add('visible', 'done'));
     const io = new IntersectionObserver(es => es.forEach(e => {
       if (e.isIntersecting) { e.target.style.animationDelay = `${Math.min(cards.indexOf(e.target), 4) * 80}ms`; e.target.classList.add('visible'); io.unobserve(e.target); }
     }), { threshold: 0 });  // 用 0：超长文章的可见比例可能低于 5%，用比例阈值会一直不触发，导致整篇文章透明不显示
-    cards.forEach(c => io.observe(c));
+    cards.forEach(c => {
+      io.observe(c);
+      // 入场动画结束后移除动画，让 hover 阴影 / 主题过渡正常生效
+      c.addEventListener('animationend', e => { if (e.target === c) c.classList.add('done'); }, { once: false });
+    });
     // 兜底：1.5 秒后仍未显示的卡片直接显示，避免动画失效时页面一片空白
     setTimeout(() => cards.forEach(c => c.classList.add('visible')), 1500);
   }
@@ -708,8 +771,73 @@
   }
   const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
 
+  /* ---------- 主题 ---------- */
+  // 4 套主题 + 跟随系统；选择存 localStorage('pixie-theme')；首屏主题由 index.html <head> 内联脚本提前设置（防闪烁）
+  const THEMES = [
+    { id: 'neon', name: '霓虹暗夜', sw: ['#2b2b2d', '#1fd1b5'], meta: '#2b2b2d' },
+    { id: 'light', name: '纸白', sw: ['#ffffff', '#0b7a6c'], meta: '#f3f4f6' },
+    { id: 'ocean', name: '深海', sw: ['#0b1724', '#38bdf8'], meta: '#0b1724' },
+    { id: 'sakura', name: '樱粉', sw: ['#fbf3f1', '#c2185b'], meta: '#fbf3f1' },
+  ];
+  const THEME_KEY = 'pixie-theme';
+  const themeCfg = Object.assign({ default: 'auto', switcher: true }, typeof C.theme === 'string' ? { default: C.theme } : (C.theme || {}));
+  const isTheme = t => THEMES.some(x => x.id === t);
+  const sysLight = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
+  function themeMode() {
+    let m = null;
+    if (themeCfg.switcher !== false) { try { m = localStorage.getItem(THEME_KEY); } catch { /* ignore */ } }
+    if (m !== 'auto' && !isTheme(m)) m = isTheme(themeCfg.default) ? themeCfg.default : 'auto';
+    return m;
+  }
+  const resolveTheme = m => (m === 'auto' ? (sysLight && sysLight.matches ? 'light' : 'neon') : m);
+  function applyTheme(mode, save) {
+    if (mode !== 'auto' && !isTheme(mode)) mode = 'auto';
+    if (save) { try { localStorage.setItem(THEME_KEY, mode); } catch { /* ignore */ } }
+    const t = resolveTheme(mode), root = document.documentElement, prev = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', t);
+    root.setAttribute('data-theme-mode', mode);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = THEMES.find(x => x.id === t).meta;
+    $$('#themePanel .theme-opt').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
+    if (prev !== t) window.dispatchEvent(new CustomEvent('pixie:themechange', { detail: { theme: t, mode } }));
+  }
+  function initTheme() {
+    applyTheme(themeMode(), false);
+    sysLight?.addEventListener?.('change', () => { if (themeMode() === 'auto') applyTheme('auto', false); });
+    const wrap = $('#themeSwitch'), btn = $('#themeBtn'), panel = $('#themePanel');
+    if (!wrap || !btn || !panel) return;
+    if (themeCfg.switcher === false) { wrap.remove(); return; }
+    panel.innerHTML = '<div class="theme-panel-title">主题</div>' +
+      THEMES.map(t => `<button type="button" class="theme-opt" role="menuitemradio" data-mode="${t.id}">
+        <span class="sw" style="--sw-a:${t.sw[0]};--sw-b:${t.sw[1]}"></span><span class="name">${t.name}</span><i class="fa-solid fa-check check"></i></button>`).join('') +
+      `<div class="theme-sep"></div><button type="button" class="theme-opt" role="menuitemradio" data-mode="auto">
+        <span class="sw auto"><i class="fa-solid fa-circle-half-stroke"></i></span><span class="name">跟随系统 <span class="sub">浅色→纸白 · 深色→霓虹</span></span><i class="fa-solid fa-check check"></i></button>
+      <div class="theme-hint">按 <kbd>T</kbd> 快速切换</div>`;
+    applyTheme(themeMode(), false);
+    const open = v => { panel.classList.toggle('open', v); btn.setAttribute('aria-expanded', String(v)); };
+    btn.addEventListener('click', e => { e.stopPropagation(); open(!panel.classList.contains('open')); });
+    panel.addEventListener('click', e => {
+      const o = e.target.closest('.theme-opt');
+      if (!o) return;
+      applyTheme(o.dataset.mode, true);
+      open(false);
+    });
+    document.addEventListener('click', e => { if (!e.target.closest('#themeSwitch')) open(false); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') return open(false);
+      const ae = document.activeElement;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(ae?.tagName) || ae?.isContentEditable;
+      if (typing || e.ctrlKey || e.metaKey || e.altKey || e.repeat || (e.key !== 't' && e.key !== 'T')) return;
+      const cur = THEMES.findIndex(x => x.id === document.documentElement.getAttribute('data-theme'));
+      const next = THEMES[(cur + 1) % THEMES.length];
+      applyTheme(next.id, true);
+      toast(`主题：${next.name}`);
+    });
+  }
+
   /* ---------- 启动 ---------- */
   async function init() {
+    try { initTheme(); } catch (e) { console.warn('theme', e); }
     marked.setOptions({ gfm: true, breaks: false });
     if (C.particles !== false && window.startParticles) startParticles($('#particles'));
     initSearch();

@@ -4,10 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Loading…</title>
+  <meta name="theme-color" content="#2b2b2d">
   <link rel="icon" id="favicon" href="data:,">
+  <script src="config.js"></script>
+  <!-- 防闪烁：在加载样式表之前确定主题（localStorage: pixie-theme → config.theme.default → 跟随系统） -->
+  <script>
+    (function () {
+      var T = ['neon', 'light', 'ocean', 'sakura'], d = document.documentElement, c = {}, m = null;
+      try { c = (window.PIXIE_CONFIG && window.PIXIE_CONFIG.theme) || {}; } catch (e) {}
+      try { if (c.switcher !== false) m = localStorage.getItem('pixie-theme'); } catch (e) {}
+      if (m !== 'auto' && T.indexOf(m) < 0) m = c['default'] || 'auto';
+      if (m !== 'auto' && T.indexOf(m) < 0) m = 'auto';
+      var t = m === 'auto' ? ((window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'neon') : m;
+      d.setAttribute('data-theme', t); d.setAttribute('data-theme-mode', m);
+    })();
+  </script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="css/style.css">
-  <script src="config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
@@ -40,11 +53,17 @@
 
     <!-- 右栏 -->
     <main class="main">
-      <div class="search-bar" id="searchBar">
-        <i class="fa-solid fa-magnifying-glass"></i>
-        <input id="searchInput" type="search" autocomplete="off" placeholder="搜索文章…（按 / 或 Ctrl+K）">
-        <button id="searchClear" class="search-clear" aria-label="清空"><i class="fa-solid fa-xmark"></i></button>
-        <div id="searchResults" class="search-results"></div>
+      <div class="top-bar">
+        <div class="search-bar" id="searchBar">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="searchInput" type="search" autocomplete="off" placeholder="搜索文章…（按 / 或 Ctrl+K）">
+          <button id="searchClear" class="search-clear" aria-label="清空"><i class="fa-solid fa-xmark"></i></button>
+          <div id="searchResults" class="search-results"></div>
+        </div>
+        <div class="theme-switch" id="themeSwitch">
+          <button id="themeBtn" class="theme-btn" type="button" aria-label="切换主题（快捷键 T）" title="切换主题（T）" aria-haspopup="true" aria-expanded="false" aria-controls="themePanel"><i class="fa-solid fa-palette"></i></button>
+          <div id="themePanel" class="theme-panel" role="menu" aria-label="选择主题"></div>
+        </div>
       </div>
       <div id="content"><div class="loading"><i class="fa-solid fa-spinner fa-spin"></i> 加载中…</div></div>
       <footer class="site-footer" id="footer"></footer>
