@@ -598,8 +598,10 @@
     if (!('IntersectionObserver' in window)) return cards.forEach(c => c.classList.add('visible'));
     const io = new IntersectionObserver(es => es.forEach(e => {
       if (e.isIntersecting) { e.target.style.animationDelay = `${Math.min(cards.indexOf(e.target), 4) * 80}ms`; e.target.classList.add('visible'); io.unobserve(e.target); }
-    }), { threshold: 0.05 });
+    }), { threshold: 0 });  // 用 0：超长文章的可见比例可能低于 5%，用比例阈值会一直不触发，导致整篇文章透明不显示
     cards.forEach(c => io.observe(c));
+    // 兜底：1.5 秒后仍未显示的卡片直接显示，避免动画失效时页面一片空白
+    setTimeout(() => cards.forEach(c => c.classList.add('visible')), 1500);
   }
   function markMenu() {
     const h = location.hash || '#/';
