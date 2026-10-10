@@ -14,6 +14,7 @@ window.PIXIE_CONFIG = {
   menu: [
     { name: '主页', url: '#/' },
     { name: '所有文章', url: '#/archives' },
+    { name: '分类', url: '#/categories' },
   ],
 
   projectsTitle: '一些小玩意儿',

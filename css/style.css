@@ -79,6 +79,9 @@ a { color: var(--teal); text-decoration: none; }
 /* 分类列表 */
 .cat-list, .cat-sub { list-style: none; margin: 0; padding: 0; text-align: left; }
 .cat-list { padding: 0 6px; }
+.cat-page { max-width: 520px; padding: 6px 0 4px; }
+.cat-page .cat-item { font-size: 16px; padding: 7px 12px; }
+.page-title a { color: inherit; } .page-title a:hover { color: var(--teal); }
 .cat-sub { margin-left: 14px; padding-left: 8px; border-left: 1px dashed #4a4a4a; }
 .cat-item { display: flex; align-items: center; gap: 8px; padding: 4px 10px; margin: 2px 0; border-radius: 8px;
   color: #ddd; font-size: 14px; transition: .2s; }
@@ -284,7 +287,7 @@ mark { background: var(--orange); color: #111; border-radius: 3px; padding: 0 2p
   body { font-size: 15px; line-height: 1.75; }
   .wrap { flex-direction: column; gap: 14px; padding: 10px; }
   .side-card { position: static; width: 100%; max-height: none; padding: 20px 16px 14px; }
-  .side-card .tags-block, .side-card .cats-block, .side-card .projects-block { display: none; }
+  .side-card .tags-block, .side-card .projects-block { display: none; }
   .avatar { width: 96px; height: 96px; padding: 6px; }
   .author { font-size: 30px; margin-top: 8px; }
   .subtitle { margin: 4px 0 12px; font-size: 15px; }

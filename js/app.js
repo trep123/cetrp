@@ -299,13 +299,20 @@
       <h2 class="page-title"><i class="fa-solid fa-tag"></i> ${esc(tag)}</h2><p class="page-sub">共 ${list.length} 篇</p>${archiveList(list)}</article>`;
     setTitle('标签：' + tag);
   }
+  function viewCategories() {
+    const tops = [...catMap.keys()].filter(k => !k.includes('/'));
+    content().innerHTML = `<article class="post-card glow-in">
+      <h2 class="page-title">分类</h2><p class="page-sub">共 ${tops.length} 个分类</p>
+      <ul class="cat-list cat-page">${catTreeHtml()}</ul></article>`;
+    setTitle('分类');
+  }
   function viewCategory(key) {
     const list = catMap.get(key);
     if (!list) return viewNotFound();
     const parts = key.split('/');
     const crumbs = parts.map((c, i) => i === parts.length - 1 ? esc(c) : `<a href="${catHref(parts.slice(0, i + 1).join('/'))}">${esc(c)}</a>`).join(' / ');
     content().innerHTML = `<article class="post-card glow-in">
-      <h2 class="page-title"><i class="fa-solid fa-folder-open"></i> ${crumbs}</h2><p class="page-sub">共 ${list.length} 篇</p>${archiveList(list)}</article>`;
+      <h2 class="page-title"><a href="#/categories">分类</a> / ${crumbs}</h2><p class="page-sub">共 ${list.length} 篇</p>${archiveList(list)}</article>`;
     setTitle('分类：' + parts.join(' / '));
   }
   function viewPost(slug) {
@@ -481,11 +488,9 @@
     $('#footer').innerHTML = `© ${new Date().getFullYear()} ${esc(C.author || repo.owner)} · Theme inspired by <a href="https://github.com/wangshengithub/pixie" target="_blank" rel="noopener">Pixie</a>`;
     $('#llmPrompt').textContent = fill(C.llmPrompt || '', { url: location.origin + location.pathname });
   }
-  function renderCats(active) {
-    const box = $('#catList');
-    if (!box) return;
+  function catTreeHtml(active) {
     const keys = [...catMap.keys()];
-    if (!keys.length) { box.innerHTML = '<li class="cat-empty">暂无分类</li>'; return; }
+    if (!keys.length) return '<li class="cat-empty">暂无分类。在 front matter 写 categories，或把笔记放进子目录。</li>';
     const tree = (prefix, depth) => keys
       .filter(k => k.split('/').length === depth + 1 && (!prefix || k.startsWith(prefix + '/')))
       .sort((a, b) => catMap.get(b).length - catMap.get(a).length || a.localeCompare(b, 'zh'))
@@ -496,13 +501,12 @@
           <i class="fa-solid ${kids ? 'fa-folder' + (on ? '-open' : '') : 'fa-folder'}"></i><span class="cat-name">${esc(k.split('/').pop())}</span><span class="cat-num">${catMap.get(k).length}</span></a>
           ${kids ? `<ul class="cat-sub">${kids}</ul>` : ''}</li>`;
       }).join('');
-    box.innerHTML = tree('', 0);
+    return tree('', 0);
   }
-  function renderTagCloud(active, activeCat) {
-    renderCats(activeCat);
+  function renderTagCloud(active) {
     const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length || a.localeCompare(b, 'zh'));
     $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:#888;font-size:13px">暂无标签</span>';
-    if (!tags.length && !catMap.size && !C.projects?.length) $('#drawerBtn').style.display = 'none';
+    if (!tags.length && !C.projects?.length) $('#drawerBtn').style.display = 'none';
     // 抽屉内容 = 标签 + 项目
     $('#drawerBody').innerHTML = $$('#sidebar .side-block').map(b => b.outerHTML).join('');
   }
@@ -541,7 +545,7 @@
     const h = location.hash || '#/';
     $$('#menu a').forEach(a => {
       const u = a.getAttribute('href');
-      a.classList.toggle('active', u === h || (u === '#/' && /^#\/(page\/\d+)?$/.test(h)) || (u === '#/' && h === ''));
+      a.classList.toggle('active', u === h || (u === '#/categories' && h.startsWith('#/category/')) || (u === '#/' && /^#\/(page\/\d+)?$/.test(h)) || (u === '#/' && h === ''));
     });
   }
 
@@ -556,10 +560,11 @@
     else if ((m = h.match(/^\/page\/(\d+)$/))) viewHome(+m[1]);
     else if (h === '/archives') viewArchives();
     else if ((m = h.match(/^\/tag\/(.+)$/))) { activeTag = safeDecode(m[1]); viewTag(activeTag); }
+    else if (h === '/categories') viewCategories();
     else if ((m = h.match(/^\/category\/(.+)$/))) { activeCat = m[1].split('/').map(safeDecode).join('/'); viewCategory(activeCat); }
     else if ((m = h.match(/^\/post\/(.+)$/))) viewPost(m[1].split('/').map(safeDecode).join('/'));
     else viewNotFound();
-    renderTagCloud(activeTag, activeCat);
+    renderTagCloud(activeTag);
     markMenu();
     animateCards();
     scrollTo({ top: 0, behavior: 'instant' });
