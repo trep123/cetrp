@@ -1,7 +1,7 @@
 ---
 title: 部署 Roundcube + Postfix + Dovecot + SSL
 date: 2026-10-10
-categories: [运维, 邮件服务]
+categories: [Linux, Debian,邮件服务]
 tags: [Postfix, Dovecot, Roundcube, SSL, Debian]
 description: 在 Debian 上用 Postfix 收发邮件、Dovecot 提供 IMAPS/POP3S 与 SASL 认证、Roundcube 做 Webmail，全程 SSL 加密。
 ---
