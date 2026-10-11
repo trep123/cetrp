@@ -427,9 +427,9 @@
     const cats = [...catMap.keys()].filter(k => !k.includes('/'))
       .sort((a, b) => catMap.get(b).length - catMap.get(a).length || a.localeCompare(b, 'zh'));
     const latest = posts.find(p => p.date);
-    const stat = (n, label) => `<div class="home-stat"><b>${n}</b><span>${label}</span></div>`;
+    const stat = (n, label, cls = '') => `<div class="home-stat${cls}"><b>${n}</b><span>${label}</span></div>`;
     return {
-      stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${stat(tagMap.size, '标签')}${latest ? stat(fmtDate(latest.date), '最近更新') : ''}</div>`,
+      stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${stat(tagMap.size, '标签')}${latest ? stat(fmtDate(latest.date), '最近更新', ' is-date') : ''}</div>`,
       categories: cats.length ? `<div class="home-cats">${cats.map(k => `<a class="cat-item" href="${catHref(k)}"><i class="fa-solid fa-folder"></i>${esc(k)}<span class="num">${catMap.get(k).length}</span></a>`).join('')}</div>` : '',
       recent: `<ul class="archive-list home-recent">${posts.slice(0, 5).map(p => `<li><time>${p.date ? fmtDate(p.date) : '--'}</time><a href="${postHref(p)}">${esc(p.title)}</a></li>`).join('')}</ul>`,
       hot: VC ? `<ul class="home-hot" id="homeHot">${hotList()}</ul>` : '',
