@@ -13,5 +13,16 @@
   "notes/Linux/RedHat/2024-03-27-10-Shell脚本.md",
   "notes/Linux/Rocky/2026-10-10-rocky9-openstack-deploy.md",
   "notes/Network/Huawei/01-登录华为设备.md",
+  "notes/Network/Huawei/02-ACL原理及应用.md",
+  "notes/Network/Huawei/03-NAT原理及应用.md",
+  "notes/Network/Huawei/04-DHCP原理及应用.md",
+  "notes/Network/Huawei/05-网络质量探测.md",
+  "notes/Network/Huawei/06-网关冗余VRRP.md",
+  "notes/Network/Huawei/07-路由综合实验.md",
+  "notes/Network/Huawei/08-路由策略.md",
+  "notes/Network/Huawei/09-策略路由.md",
+  "notes/Network/Huawei/10-IPSecVPN.md",
+  "notes/Network/Huawei/11-无线WLAN.md",
+  "notes/Network/Huawei/12-防火墙配置.md",
   "notes/WindowsServer/AD/2026-10-10-dsadd-user.md"
 ]
