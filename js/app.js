@@ -720,7 +720,7 @@
     $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:var(--muted);font-size:13px">暂无标签</span>';
     if (!tags.length && !C.projects?.length) $('#drawerBtn').style.display = 'none';
     // 抽屉内容 = 标签 + 项目
-    $('#drawerBody').innerHTML = $$('#sidebar .side-block').map(b => b.outerHTML).join('');
+    $('#drawerBody').innerHTML = $$('#sidebar .side-block').map(b => b.outerHTML).join('') + ($('#social')?.innerHTML ? `<div class="social drawer-social">${$('#social').innerHTML}</div>` : '');
   }
   function openDrawer() { document.body.classList.add('drawer-open'); $('#drawer').setAttribute('aria-hidden', 'false'); }
   function closeDrawer() { document.body.classList.remove('drawer-open'); $('#drawer').setAttribute('aria-hidden', 'true'); }
@@ -761,7 +761,7 @@
   }
   function markMenu() {
     const h = location.hash || '#/';
-    $$('#menu a').forEach(a => {
+    $$('#menu a, #mTab a[href]').forEach(a => {
       const u = a.getAttribute('href');
       a.classList.toggle('active', u === h || (u === '#/categories' && h.startsWith('#/category/')) || (u === '#/' && /^#\/(page\/\d+)?$/.test(h)) || (u === '#/' && h === ''));
     });
@@ -772,6 +772,7 @@
     tocCleanup?.(); tocCleanup = null;
     closeDrawer();
     $('#searchResults').classList.remove('open');
+    closeMobileSheets();
     const h = location.hash.replace(/^#/, '') || '/';
     let m, activeTag, activeCat;
     if (h === '/' || h === '') viewHome(1);
@@ -791,6 +792,10 @@
     markMenu();
     animateCards();
     if (VC && $('.post-views, #homeHot')) loadAllViews().then(paintViews);
+    document.body.classList.toggle('is-post', /^#\/(p|post)\//.test(location.hash));
+    document.body.classList.toggle('has-toc', !!$('#content .toc'));
+    document.body.classList.remove('bar-hidden');
+    updateProgress();
     scrollTo({ top: 0, behavior: 'instant' });
   }
   const safeDecode = s => { try { return decodeURIComponent(s); } catch { return s; } };
@@ -857,6 +862,72 @@
       applyTheme(next.id, true);
       toast(`主题：${next.name}`);
     });
+  }
+
+  /* ---------- 移动端专属排版（≤900px）：顶部应用栏 + 底部标签栏 + 目录抽屉 + 全屏搜索 ---------- */
+  const mobileMq = window.matchMedia ? matchMedia('(max-width: 900px)') : { matches: innerWidth <= 900 };
+  function closeMobileSheets() { document.body.classList.remove('m-search', 'toc-open'); }
+  function updateProgress() {
+    const bar = $('#mProgress');
+    if (!bar) return;
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.transform = `scaleX(${document.body.classList.contains('is-post') && max > 0 ? Math.min(1, scrollY / max) : 0})`;
+  }
+  function initMobileLayout() {
+    const icon = u => ({ '#/': 'fa-house', '#/archives': 'fa-box-archive', '#/categories': 'fa-folder-tree' })[u] || (/^https?:/.test(u) ? 'fa-up-right-from-square' : 'fa-bookmark');
+    const avatar = $('#avatar').getAttribute('src');
+    // 顶部应用栏
+    const bar = document.createElement('header');
+    bar.id = 'mBar'; bar.className = 'm-bar';
+    bar.innerHTML = `<a href="#/" class="m-brand">${avatar ? `<img src="${esc(avatar)}" alt="">` : ''}<span>${esc(C.title || C.author || repo.owner || 'Notes')}</span></a>
+      <button type="button" class="m-icon" id="mSearchBtn" aria-label="搜索"><i class="fa-solid fa-magnifying-glass"></i></button>
+      <div class="m-theme-slot"></div><div class="m-progress" id="mProgress"></div>`;
+    document.body.prepend(bar);
+    // 底部标签栏：config.menu 前 4 项 + 标签
+    const tab = document.createElement('nav');
+    tab.id = 'mTab'; tab.className = 'm-tab';
+    const items = (C.menu || []).slice(0, 4).map(m => `<a href="${esc(m.url)}"${/^https?:/.test(m.url) ? ' target="_blank" rel="noopener"' : ''}><i class="fa-solid ${icon(m.url)}"></i><span>${esc(m.name)}</span></a>`);
+    if (tagMap.size || C.projects?.length) items.push('<button type="button" id="mTagBtn"><i class="fa-solid fa-tags"></i><span>标签</span></button>');
+    tab.innerHTML = items.join('');
+    tab.style.setProperty('--n', items.length);
+    document.body.appendChild(tab);
+    $('#mTagBtn')?.addEventListener('click', openDrawer);
+    // 目录按钮 + 遮罩
+    const tocBtn = document.createElement('button');
+    tocBtn.id = 'mTocBtn'; tocBtn.className = 'm-toc-btn'; tocBtn.type = 'button'; tocBtn.setAttribute('aria-label', '目录');
+    tocBtn.innerHTML = '<i class="fa-solid fa-list-ul"></i>';
+    const mask = document.createElement('div'); mask.className = 'm-mask'; mask.id = 'mMask';
+    document.body.append(tocBtn, mask);
+    tocBtn.onclick = () => document.body.classList.toggle('toc-open');
+    mask.onclick = closeMobileSheets;
+    document.addEventListener('click', e => { if (e.target.closest('.toc a[data-id]') && mobileMq.matches) document.body.classList.remove('toc-open'); });
+    // 全屏搜索
+    const cancel = document.createElement('button');
+    cancel.type = 'button'; cancel.className = 'm-search-cancel'; cancel.textContent = '取消';
+    $('#searchBar').after(cancel);
+    $('#mSearchBtn').onclick = () => { document.body.classList.add('m-search'); setTimeout(() => $('#searchInput').focus(), 50); };
+    cancel.onclick = () => { closeMobileSheets(); $('#searchInput').blur(); };
+    // 主题按钮：手机上移到应用栏，电脑上放回搜索栏旁
+    const sw = $('#themeSwitch'), home = $('.top-bar');
+    const place = () => {
+      if (!sw) return;
+      if (mobileMq.matches) $('.m-theme-slot', bar).appendChild(sw); else home.appendChild(sw);
+      if (!mobileMq.matches) closeMobileSheets();
+    };
+    place();
+    if (mobileMq.addEventListener) mobileMq.addEventListener('change', place); else if (mobileMq.addListener) mobileMq.addListener(place);
+    // 下滑隐藏应用栏，上滑显示；阅读进度条
+    let lastY = scrollY;
+    addEventListener('scroll', () => {
+      const y = scrollY, b = document.body;
+      if (mobileMq.matches && !b.classList.contains('m-search') && !b.classList.contains('toc-open')) {
+        if (y > lastY + 6 && y > 120) b.classList.add('bar-hidden');
+        else if (y < lastY - 6 || y < 60) b.classList.remove('bar-hidden');
+      }
+      lastY = y;
+      updateProgress();
+    }, { passive: true });
+    addEventListener('keydown', e => { if (e.key === 'Escape') closeMobileSheets(); });
   }
 
   /* ---------- 启动 ---------- */
@@ -932,6 +1003,7 @@
         <small>请检查 config.js 里的 repo 配置；本地预览时需填写 owner 和 name。</small></div></div>`;
       return;
     }
+    try { initMobileLayout(); } catch (e) { console.warn('mobile layout', e); }
     route();
     addEventListener('hashchange', route);
   }
