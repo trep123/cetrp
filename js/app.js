@@ -860,7 +860,57 @@
   }
 
   /* ---------- 启动 ---------- */
+  /* ---------- 移动端：禁止缩放 + 图片查看 + 溢出调试 ---------- */
+  // config 里 zoom: true 可恢复手势缩放
+  function initMobile() {
+    if (C.zoom !== true) {
+      // iOS Safari 会忽略 user-scalable=no，这里用手势事件拦截双指缩放和双击放大
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+      document.addEventListener('touchmove', e => { if (e.touches.length > 1 && !e.target.closest('.img-viewer')) e.preventDefault(); }, { passive: false });
+      // 双击放大由 CSS touch-action: manipulation 关闭，不拦截 touchend，以免吞掉快速连点
+      // Ctrl + 滚轮 / Ctrl + +/- 是电脑端的主动缩放，保留不拦截（属于浏览器无障碍功能）
+    } else {
+      const vp = document.querySelector('meta[name=viewport]');
+      if (vp) vp.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+    }
+    // 点击正文图片查看大图；大图再点一次切换原始尺寸，点空白处关闭
+    const viewer = document.createElement('div');
+    viewer.className = 'img-viewer'; viewer.innerHTML = '<img alt="">';
+    document.body.appendChild(viewer);
+    const vImg = viewer.firstChild;
+    const closeViewer = () => { viewer.classList.remove('open', 'zoom'); document.body.style.overflow = ''; };
+    document.addEventListener('click', e => {
+      const img = e.target.closest('.markdown img');
+      if (!img || img.closest('a')) return;
+      vImg.src = img.currentSrc || img.src; vImg.alt = img.alt || '';
+      viewer.classList.add('open'); document.body.style.overflow = 'hidden';
+    });
+    viewer.addEventListener('click', e => {
+      if (e.target === vImg && (vImg.naturalWidth > viewer.clientWidth || vImg.naturalHeight > viewer.clientHeight)) viewer.classList.toggle('zoom');
+      else closeViewer();
+    });
+    addEventListener('keydown', e => { if (e.key === 'Escape' && viewer.classList.contains('open')) closeViewer(); });
+    addEventListener('hashchange', closeViewer);
+    // 地址带 ?overflow 时，把宽度超出屏幕的元素描红并在控制台列出
+    if (/[?&]overflow\b/.test(location.search)) {
+      const check = () => {
+        const W = document.documentElement.clientWidth, bad = [];
+        $$('body *').forEach(el => {
+          el.classList.remove('overflow-debug');
+          const r = el.getBoundingClientRect();
+          if (r.width && (r.right > W + 1 || r.left < -1) && !el.closest('.drawer, .img-viewer, .ce-word, .ce-particle, #particles, .llm-prompt')) bad.push(el);
+        });
+        bad.forEach(el => el.classList.add('overflow-debug'));
+        console.log('[overflow] 视口宽度', W, '超出元素', bad);
+        toast(bad.length ? `有 ${bad.length} 个元素超出屏幕（已描红）` : '没有元素超出屏幕');
+      };
+      addEventListener('hashchange', () => setTimeout(check, 800));
+      setTimeout(check, 1500);
+    }
+  }
+
   async function init() {
+    try { initMobile(); } catch (e) { console.warn('mobile', e); }
     try { initTheme(); } catch (e) { console.warn('theme', e); }
     marked.setOptions({ gfm: true, breaks: false });
     if (C.particles !== false && window.startParticles) startParticles($('#particles'));

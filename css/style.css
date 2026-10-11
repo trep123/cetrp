@@ -921,3 +921,59 @@ mark { background: var(--mark-bg); color: var(--mark-text); border-radius: 3px; 
   .avatar:hover img { transform: none; }
   .nf h1 { animation: none; }
 }
+
+/* ========== 防溢出 / 禁止缩放（2026-10-11） ========== */
+/* 任何元素都不能把页面撑宽：横向溢出一律裁掉（html 用 hidden 兜底，body 用 clip 不破坏 sticky） */
+html { overflow-x: hidden; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@supports (overflow: clip) { html { overflow-x: clip; } body { overflow-x: clip; } }
+html, body { max-width: 100%; }
+body { min-width: 0; overscroll-behavior-x: none; }
+#particles { width: 100% !important; height: 100% !important; }
+img, svg, video, canvas, iframe, embed, object { max-width: 100%; }
+.wrap, .main, .post-card, .post-layout, .post-layout > *, .post-body, .markdown, .side-card, .top-bar { min-width: 0; max-width: 100%; }
+.post-full > * { max-width: min(var(--article-width), 100%); }
+/* 长标题、长英文单词、长链接自动断行 */
+.post-title, .post-full .post-title, .author, .subtitle, .page-title, .sr-title, .sr-excerpt,
+.archive-list a, .post-nav a, .copyright-card, .callout-title, .home-cats .cat-item, .cat-name { overflow-wrap: anywhere; word-break: break-word; }
+.post-title { min-width: 0; }
+.archive-list li > a { flex: 1; min-width: 0; }
+.post-tags, .post-meta, .home-tags, .tag-cloud { min-width: 0; max-width: 100%; }
+/* 代码块和表格只在自身内部横向滚动 */
+.code-block, .table-wrap, .markdown > table { max-width: 100%; }
+.code-block pre { max-width: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.table-wrap { overscroll-behavior-x: contain; }
+.markdown td { overflow-wrap: break-word; word-break: normal; }
+.markdown td code { word-break: break-all; }
+/* 输入框字号 ≥16px，iOS 聚焦时不再自动放大 */
+input, select, textarea, button { font-size: max(16px, 1em); }
+.code-bar button, .copy-link-btn, .read-more { font-size: 13px; }
+/* 图片点击查看大图（替代手势缩放） */
+.markdown img { cursor: zoom-in; }
+.img-viewer { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(0,0,0,.88); opacity: 0; pointer-events: none; transition: opacity .2s; cursor: zoom-out; overflow: auto; }
+.img-viewer.open { opacity: 1; pointer-events: auto; }
+.img-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.img-viewer.zoom { align-items: flex-start; justify-content: flex-start; }
+.img-viewer.zoom img { max-width: none; max-height: none; }
+/* 超窄屏（≤360px） */
+@media (max-width: 360px) {
+  .wrap { padding: 6px; padding-left: max(6px, env(safe-area-inset-left)); padding-right: max(6px, env(safe-area-inset-right)); }
+  .post-card, .post-full { padding-left: 12px; padding-right: 12px; }
+  .search-bar { padding: 0 12px; }
+  .theme-btn { width: 42px; height: 42px; flex-shrink: 0; }
+  .side-card .author { font-size: 19px; }
+  .markdown { font-size: 14.5px; }
+  .code-block pre code { font-size: 12px; }
+  .markdown th, .markdown td { padding: 6px 8px; }
+  .post-meta { gap: 4px 12px; font-size: 12.5px; }
+  .nf h1 { font-size: 72px; }
+}
+@media (max-width: 900px) {
+  .side-card { grid-template-columns: auto minmax(0, 1fr); }
+  .theme-btn { flex-shrink: 0; }
+  .post-side { flex-wrap: wrap; }
+  .copyright-card { padding: 14px 14px; }
+}
+/* 调试：地址后加 ?overflow 会给撑宽页面的元素描红 */
+.overflow-debug { outline: 2px solid red !important; outline-offset: -2px; }
