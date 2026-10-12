@@ -32,6 +32,7 @@
   const tagMap = new Map();     // tag -> posts[]
   const catMap = new Map();     // '前端/Vue' -> posts[]（父分类包含子分类文章）
   let tocCleanup = null;
+  const docCleanups = [];        // 文档预览器离开页面时的清理函数
 
   /* ---------- 工具 ---------- */
   const unq = s => s.trim().replace(/^(['"])(.*)\1$/, '$2');
@@ -93,6 +94,24 @@
     }
     return out.join('\n\n');
   }
+  // PDF / Word 文档：不下载内容，标题和日期取自文件名（支持 2026-10-13-标题.pdf 这种日期前缀）
+  const DOC_RE = /\.(pdf|docx)$/i;
+  const NOTE_RE = /\.(md|pdf|docx)$/i;
+  const DOC_INFO = { pdf: { name: 'PDF', icon: 'fa-regular fa-file-pdf' }, docx: { name: 'Word', icon: 'fa-regular fa-file-word' } };
+  const docIco = p => p.kind ? `<i class="${DOC_INFO[p.kind].icon} doc-ico doc-${p.kind}" title="${DOC_INFO[p.kind].name} 文档"></i>` : '';
+  function buildDocPost(path) {
+    const rel = path.slice(repo.dir.length + 1);
+    const name = rel.split('/').pop();
+    const kind = name.split('.').pop().toLowerCase();
+    const file = name.replace(/\.[^.]+$/, '');
+    const fm = file.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[-_](.+)$/);
+    let date = fm ? new Date(`${fm[1]}/${fm[2]}/${fm[3]}`) : null;
+    if (date && isNaN(date)) date = null;
+    const folder = rel.split('/').slice(0, -1).join('/');
+    const title = fm ? fm[4] : file;
+    return { path, rel, slug: rel, title, date, tags: [], category: folder ? folder.split('/') : [], content: '', kind,
+      excerpt: '', plain: title, words: 0 };
+  }
   function buildPost(path, raw) {
     const { meta, body } = parseFrontMatter(raw);
     const rel = path.slice(repo.dir.length + 1);
@@ -145,7 +164,7 @@
     throw new Error('jsDelivr 失败');
   }
   async function listFiles() {
-    const isNote = p => p.startsWith(repo.dir + '/') && /\.md$/i.test(p) &&
+    const isNote = p => p.startsWith(repo.dir + '/') && NOTE_RE.test(p) &&
       !p.split('/').some(s => s.startsWith('_') || s.startsWith('.')) && !/\/readme\.md$/i.test(p);
     const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || 'null');
     if (cached && Date.now() - cached.t < 5 * 60 * 1000) return cached.paths;
@@ -193,8 +212,8 @@
   }
   async function loadPosts() {
     const paths = await listFiles();
-    const texts = await pool(paths, 8, p => fetch(encPath(p)).then(r => (r.ok ? r.text() : null)));
-    posts = paths.map((p, i) => (texts[i] == null ? null : buildPost(p, texts[i]))).filter(Boolean);
+    const texts = await pool(paths, 8, p => (DOC_RE.test(p) ? '' : fetch(encPath(p)).then(r => (r.ok ? r.text() : null))));
+    posts = paths.map((p, i) => (texts[i] == null ? null : DOC_RE.test(p) ? buildDocPost(p) : buildPost(p, texts[i]))).filter(Boolean);
     posts.sort((a, b) => (b.date || 0) - (a.date || 0) || a.title.localeCompare(b.title, 'zh'));
     bySlug.clear(); byId.clear(); tagMap.clear(); catMap.clear();
     for (const p of posts) {
@@ -285,7 +304,7 @@
     try { return decodeURIComponent(new URL(rel, 'https://x.invalid/' + encPath(fromFile)).pathname.slice(1)); }
     catch { return null; }
   }
-  function renderMd(el, md, post) {
+  function renderMd(el, md, post, embed) {
     el.innerHTML = DOMPurify.sanitize(marked.parse(md));
     $$('img', el).forEach(img => {
       const p = resolvePath(post.path, img.getAttribute('src'));
@@ -298,8 +317,10 @@
       const p = resolvePath(post.path, href);
       if (p == null) { if (/^https?:/i.test(href)) { a.target = '_blank'; a.rel = 'noopener'; } return; }
       const slug = p.slice(repo.dir.length + 1).replace(/\.md$/i, '');
-      a.href = /\.md$/i.test(p) && bySlug.has(slug) ? postHref(bySlug.get(slug)) : encPath(p);
+      a.href = NOTE_RE.test(p) && bySlug.has(slug) ? postHref(bySlug.get(slug)) : encPath(p);
+      if (DOC_RE.test(p)) a.dataset.doc = p;
     });
+    if (embed) embedDocs(el);
     // 表格外包一层，窄屏可横向滚动
     $$('table', el).forEach(t => {
       if (t.parentElement.classList.contains('table-wrap')) return;
@@ -410,16 +431,16 @@
   function card(p) {
     return `<article class="post-card glow-in">
       <div class="post-head">
-        <h2 class="post-title"><a href="${postHref(p)}">${esc(p.title)}</a></h2>
+        <h2 class="post-title"><a href="${postHref(p)}">${docIco(p)}${esc(p.title)}</a></h2>
         <div class="post-side">
           ${p.date ? `<time class="post-date"><i class="fa-solid fa-calendar-days"></i>${fmtDate(p.date)}</time>` : ''}
           ${viewsBadge(p)}
         </div>
       </div>
-      <div class="post-excerpt markdown">${excerptHtml(p)}</div>
+      ${p.kind ? `<div class="doc-card-tip"><i class="${DOC_INFO[p.kind].icon}"></i>${DOC_INFO[p.kind].name} 文档 · 点击在线预览</div>` : `<div class="post-excerpt markdown">${excerptHtml(p)}</div>`}
       <div class="post-foot">
         <div class="post-tags">${catLink(p)}${p.tags.map(t => tagChip(t)).join('')}</div>
-        <a class="read-more" href="${postHref(p)}">阅读全文 &gt;&gt;</a>
+        <a class="read-more" href="${postHref(p)}">${p.kind ? '预览文档' : '阅读全文'} &gt;&gt;</a>
       </div>
     </article>`;
   }
@@ -431,7 +452,7 @@
     return {
       stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${stat(tagMap.size, '标签')}${latest ? stat(fmtDate(latest.date), '最近更新', ' is-date') : ''}</div>`,
       categories: cats.length ? `<div class="home-cats">${cats.map(k => `<a class="cat-item" href="${catHref(k)}"><i class="fa-solid fa-folder"></i>${esc(k)}<span class="num">${catMap.get(k).length}</span></a>`).join('')}</div>` : '',
-      recent: `<ul class="archive-list home-recent">${posts.slice(0, 5).map(p => `<li><time>${p.date ? fmtDate(p.date) : '--'}</time><a href="${postHref(p)}">${esc(p.title)}</a></li>`).join('')}</ul>`,
+      recent: `<ul class="archive-list home-recent">${posts.slice(0, 5).map(p => `<li><time>${p.date ? fmtDate(p.date) : '--'}</time><a href="${postHref(p)}">${docIco(p)}${esc(p.title)}</a></li>`).join('')}</ul>`,
       hot: VC ? `<ul class="home-hot" id="homeHot">${hotList()}</ul>` : '',
       tags: `<div class="home-tags">${[...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length).slice(0, 20).map(t => tagChip(t)).join('')}</div>`,
     };
@@ -439,7 +460,7 @@
   function homeIntro() {
     if (!homeMd || !homeMd.body.trim()) return '';
     const div = document.createElement('div');
-    renderMd(div, homeMd.body, { path: homeMd.path });
+    renderMd(div, homeMd.body, { path: homeMd.path }, true);
     enhanceCode(div);
     const blocks = homeBlocks();
     // 占位符：{{stats}} {{categories}} {{recent}} {{tags}}
@@ -471,7 +492,7 @@
     for (const p of list) {
       const y = p.date ? p.date.getFullYear() : '未注明日期';
       if (y !== year) { html += `${year !== null ? '</ul>' : ''}<h3 class="archive-year">${y}</h3><ul class="archive-list">`; year = y; }
-      html += `<li><time>${p.date ? fmtDate(p.date).slice(5) : '--'}</time><a href="${postHref(p)}">${esc(p.title)}</a></li>`;
+      html += `<li><time>${p.date ? fmtDate(p.date).slice(5) : '--'}</time><a href="${postHref(p)}">${docIco(p)}${esc(p.title)}</a></li>`;
     }
     return html + (year !== null ? '</ul>' : '');
   }
@@ -512,16 +533,17 @@
     const url = location.href;
     content().innerHTML = `<div class="post-layout">
       <article class="post-card post-full glow-in">
-        <h1 class="post-title">${esc(p.title)}</h1>
+        <h1 class="post-title">${docIco(p)}${esc(p.title)}</h1>
         <div class="post-meta">
           ${p.date ? `<span><i class="fa-solid fa-calendar-days"></i>${fmtDate(p.date)}</span>` : ''}
           ${VC ? `<span><i class="fa-regular fa-eye"></i><span id="postViews" data-slug="${esc(p.slug)}">${views.has(p.slug) ? views.get(p.slug).toLocaleString() : '—'}</span> 次阅读</span>` : ''}
-          ${C.readingTime ? `<span><i class="fa-solid fa-pen-nib"></i>${p.words.toLocaleString()} 字</span><span><i class="fa-regular fa-clock"></i>约 ${minutes} 分钟</span>` : ''}
+          ${p.kind ? `<span><i class="${DOC_INFO[p.kind].icon}"></i>${DOC_INFO[p.kind].name} 文档</span><span><i class="fa-solid fa-download"></i><a href="${encPath(p.path)}" download>下载</a></span>` : ''}
+          ${C.readingTime && !p.kind ? `<span><i class="fa-solid fa-pen-nib"></i>${p.words.toLocaleString()} 字</span><span><i class="fa-regular fa-clock"></i>约 ${minutes} 分钟</span>` : ''}
           ${p.category.length ? `<span><i class="fa-solid fa-folder-open"></i>${p.category.map((c, i) => `<a href="${catHref(p.category.slice(0, i + 1).join('/'))}">${esc(c)}</a>`).join(' / ')}</span>` : ''}
           <span><i class="fa-brands fa-github"></i><a href="${repoFileUrl(p)}" target="_blank" rel="noopener">源文件</a></span>
         </div>
         ${p.tags.length ? `<div class="post-tags">${p.tags.map(t => tagChip(t)).join('')}</div>` : ''}
-        <div class="post-body markdown" id="postBody"></div>
+        <div class="post-body ${p.kind ? 'doc-body' : 'markdown'}" id="postBody"></div>
         <div class="copyright-card">
           <div><b>作者</b>${esc(C.author || repo.owner)}</div>
           <div><b>链接</b><a href="${esc(url)}">${esc(decodeURI(url))}</a></div>
@@ -535,10 +557,13 @@
       </article>
     </div>`;
     const body = $('#postBody');
-    renderMd(body, p.content, p);
-    enhanceCode(body);
-    anchorHeadings(body);
-    if (C.toc) buildToc(body, $('.post-layout'));
+    if (!p.kind) renderMd(body, p.content, p, true);
+    if (p.kind) renderDoc(body, encPath(p.path), p.kind, p.title);
+    else {
+      enhanceCode(body);
+      anchorHeadings(body);
+      if (C.toc) buildToc(body, $('.post-layout'));
+    }
     countView(p);
     const btn = $('#copyLink');
     if (btn) btn.onclick = async () => {
@@ -594,6 +619,204 @@
       removeEventListener('scroll', onScroll);
       if (mq) { if (mq.removeEventListener) mq.removeEventListener('change', onMq); else if (mq.removeListener) mq.removeListener(onMq); }
     };
+  }
+
+  /* ---------- PDF / Word 预览（PDF.js + docx-preview，按需从 CDN 加载） ---------- */
+  // config.js 里 docCdn: { pdfjs, jszip, docx } 可换成自己的镜像地址
+  const DOC_CDN = Object.assign({
+    pdfjs: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38',
+    jszip: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+    docx: 'https://cdn.jsdelivr.net/npm/docx-preview@0.4.1/dist/docx-preview.min.js',
+  }, C.docCdn || {});
+  const scriptCache = {};
+  const loadScript = src => scriptCache[src] || (scriptCache[src] = new Promise((ok, no) => {
+    const s = document.createElement('script');
+    s.src = src; s.async = true; s.onload = ok;
+    s.onerror = () => { delete scriptCache[src]; s.remove(); no(new Error('脚本加载失败：' + src)); };
+    document.head.appendChild(s);
+  }));
+  let pdfjsP = null;
+  const loadPdfjs = () => pdfjsP || (pdfjsP = import(DOC_CDN.pdfjs + '/legacy/build/pdf.min.mjs').then(m => {
+    m.GlobalWorkerOptions.workerSrc = DOC_CDN.pdfjs + '/legacy/build/pdf.worker.min.mjs';
+    return m;
+  }).catch(e => { pdfjsP = null; throw e; }));
+
+  function docToolbar(url, title) {
+    return `<div class="doc-toolbar">
+      <div class="doc-tb-group">
+        <button type="button" data-act="out" aria-label="缩小" title="缩小"><i class="fa-solid fa-minus"></i></button>
+        <button type="button" data-act="fit" class="doc-zoom" title="适应宽度">100%</button>
+        <button type="button" data-act="in" aria-label="放大" title="放大"><i class="fa-solid fa-plus"></i></button>
+      </div>
+      <div class="doc-tb-group doc-pageinfo"><input type="number" class="doc-page-input" min="1" value="1" aria-label="页码"><span class="doc-page-total">/ -</span></div>
+      <div class="doc-tb-group">
+        <a href="${url}" download title="下载" aria-label="下载"><i class="fa-solid fa-download"></i></a>
+        <a href="${url}" target="_blank" rel="noopener" title="新窗口打开" aria-label="新窗口打开"><i class="fa-solid fa-up-right-from-square"></i></a>
+      </div>
+    </div>`;
+  }
+  function docError(el, url, e) {
+    console.warn('[pixie] 文档预览失败', e);
+    el.querySelector('.doc-stage')?.remove();
+    el.insertAdjacentHTML('beforeend', `<div class="doc-msg"><i class="fa-solid fa-triangle-exclamation"></i> 预览失败：${esc(e.message || String(e))}<br>
+      <a class="btn-neon" href="${url}" download><i class="fa-solid fa-download"></i> 下载文件</a></div>`);
+  }
+  // 通用：缩放、页码、跳页
+  function docControls(el, { onZoom, pages, scroller }) {
+    let zoom = 1;
+    const zEl = $('.doc-zoom', el), input = $('.doc-page-input', el), total = $('.doc-page-total', el);
+    const setZoom = z => { zoom = Math.min(4, Math.max(0.25, Math.round(z * 100) / 100)); zEl.textContent = Math.round(zoom * 100) + '%'; onZoom(zoom); };
+    $('.doc-toolbar', el).addEventListener('click', e => {
+      const b = e.target.closest('button[data-act]');
+      if (!b) return;
+      if (b.dataset.act === 'in') setZoom(zoom * 1.25);
+      else if (b.dataset.act === 'out') setZoom(zoom / 1.25);
+      else setZoom(1);
+    });
+    const list = () => pages();
+    const refresh = () => {
+      const ps = list();
+      total.textContent = '/ ' + (ps.length || '-');
+      input.max = ps.length || 1;
+      if (!ps.length) return;
+      let cur = 1;
+      const mid = innerHeight * 0.35;
+      ps.forEach((pg, i) => { if (pg.getBoundingClientRect().top < mid) cur = i + 1; });
+      if (document.activeElement !== input) input.value = cur;
+    };
+    input.addEventListener('change', () => {
+      const ps = list(), n = Math.min(ps.length, Math.max(1, input.value | 0));
+      ps[n - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    addEventListener('scroll', refresh, { passive: true });
+    scroller?.addEventListener('scroll', refresh, { passive: true });
+    docCleanups.push(() => removeEventListener('scroll', refresh));
+    return { refresh, get zoom() { return zoom; } };
+  }
+
+  async function renderPdf(el, url) {
+    el.innerHTML = docToolbar(url) + '<div class="doc-stage pdf-stage"><div class="doc-loading"><i class="fa-solid fa-spinner fa-spin"></i> 正在加载 PDF…</div></div>';
+    const stage = $('.doc-stage', el);
+    const pdfjs = await loadPdfjs();
+    const task = pdfjs.getDocument({ url, cMapUrl: DOC_CDN.pdfjs + '/cmaps/', cMapPacked: true, standardFontDataUrl: DOC_CDN.pdfjs + '/standard_fonts/' });
+    let alive = true;
+    docCleanups.push(() => { alive = false; task.destroy(); });
+    task.onProgress = ({ loaded, total }) => {
+      const l = $('.doc-loading', stage);
+      if (l && total) l.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> 正在加载 PDF… ${Math.round(loaded / total * 100)}%`;
+    };
+    const doc = await task.promise;
+    if (!alive) return;
+    const first = (await doc.getPage(1)).getViewport({ scale: 1 });
+    stage.innerHTML = '';
+    const nodes = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const d = document.createElement('div');
+      d.className = 'pdf-page'; d.dataset.n = i;
+      d.style.aspectRatio = `${first.width} / ${first.height}`;
+      d.innerHTML = `<span class="pdf-page-no">${i}</span>`;
+      stage.appendChild(d); nodes.push(d);
+    }
+    let zoom = 1, gen = 0;
+    const draw = async d => {
+      const g = gen;
+      if (d.dataset.g === String(g)) return;
+      d.dataset.g = g;
+      const page = await doc.getPage(+d.dataset.n);
+      if (!alive || g !== gen) return;
+      const base = page.getViewport({ scale: 1 });
+      d.style.aspectRatio = `${base.width} / ${base.height}`;
+      const cssW = d.clientWidth || stage.clientWidth;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      const vp = page.getViewport({ scale: cssW / base.width * dpr });
+      const c = document.createElement('canvas');
+      c.width = Math.floor(vp.width); c.height = Math.floor(vp.height);
+      try { await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise; } catch (e) { d.dataset.g = ''; return; }
+      if (!alive || g !== gen) return;
+      d.querySelector('canvas')?.remove();
+      d.prepend(c);
+    };
+    const clear = d => { const c = d.querySelector('canvas'); if (c) { c.width = c.height = 0; c.remove(); } d.dataset.g = ''; };
+    const io = new IntersectionObserver(es => es.forEach(e => (e.isIntersecting ? draw(e.target) : clear(e.target))), { root: null, rootMargin: '1200px 0px' });
+    nodes.forEach(n => io.observe(n));
+    docCleanups.push(() => io.disconnect());
+    const ctl = docControls(el, {
+      pages: () => nodes,
+      scroller: stage,
+      onZoom: z => {
+        zoom = z; gen++;
+        stage.style.setProperty('--pdf-zoom', z);
+        stage.classList.toggle('zoomed', z > 1);
+        nodes.forEach(n => { n.dataset.g = ''; io.unobserve(n); io.observe(n); });
+      },
+    });
+    // 窗口宽度变化（旋转屏幕）时按新宽度重画
+    let rw = stage.clientWidth, rt;
+    const onResize = () => { clearTimeout(rt); rt = setTimeout(() => { if (Math.abs(stage.clientWidth - rw) > 20) { rw = stage.clientWidth; gen++; nodes.forEach(n => { n.dataset.g = ''; io.unobserve(n); io.observe(n); }); } }, 250); };
+    addEventListener('resize', onResize);
+    docCleanups.push(() => removeEventListener('resize', onResize));
+    ctl.refresh();
+  }
+
+  async function renderDocx(el, url) {
+    el.innerHTML = docToolbar(url) + '<div class="doc-stage docx-stage"><div class="doc-loading"><i class="fa-solid fa-spinner fa-spin"></i> 正在加载 Word 文档…</div></div>';
+    const stage = $('.doc-stage', el);
+    const [buf] = await Promise.all([
+      fetch(url).then(r => { if (!r.ok) throw new Error('文件下载失败 ' + r.status); return r.arrayBuffer(); }),
+      loadScript(DOC_CDN.jszip).then(() => loadScript(DOC_CDN.docx)),
+    ]);
+    if (!window.docx?.renderAsync) throw new Error('docx-preview 未加载');
+    const box = document.createElement('div');
+    box.className = 'docx-box';
+    stage.innerHTML = ''; stage.appendChild(box);
+    await window.docx.renderAsync(buf, box, box, {
+      className: 'docx', inWrapper: true, breakPages: true, ignoreLastRenderedPageBreak: false,
+      experimental: true, renderHeaders: true, renderFooters: true, renderFootnotes: true, renderEndnotes: true,
+    });
+    $$('a[href]', box).forEach(a => { if (/^https?:/i.test(a.getAttribute('href'))) { a.target = '_blank'; a.rel = 'noopener'; } });
+    const wrap = $('.docx-wrapper', box) || box;
+    const pages = () => $$('section.docx', wrap);
+    let zoom = 1;
+    const fit = () => {
+      wrap.style.zoom = 1;
+      const pw = Math.max(1, ...pages().map(s => s.offsetWidth));
+      const avail = stage.clientWidth - (stage.clientWidth < 600 ? 12 : 40);
+      const base = Math.min(1, avail / pw);
+      wrap.style.zoom = String(base * zoom);
+      stage.classList.toggle('zoomed', base * zoom * pw > stage.clientWidth);
+    };
+    const ctl = docControls(el, { pages, scroller: stage, onZoom: z => { zoom = z; fit(); } });
+    fit();
+    let rt;
+    const onResize = () => { clearTimeout(rt); rt = setTimeout(fit, 200); };
+    addEventListener('resize', onResize);
+    docCleanups.push(() => removeEventListener('resize', onResize));
+    ctl.refresh();
+  }
+
+  function renderDoc(el, url, kind) {
+    el.classList.add('doc-view');
+    const run = kind === 'pdf' ? renderPdf : renderDocx;
+    return run(el, url).catch(e => docError(el, url, e));
+  }
+
+  // Markdown 里指向 .pdf / .docx 的链接：在所在段落后面插入可折叠的预览框
+  function embedDocs(el) {
+    const after = new Map();
+    $$('a[data-doc]', el).forEach(a => {
+      const p = a.dataset.doc, kind = p.split('.').pop().toLowerCase();
+      const block = a.closest('p, li, td, th, blockquote, h1, h2, h3, h4, h5, h6') || a;
+      const name = (a.textContent || '').trim() || p.split('/').pop();
+      const det = document.createElement('details');
+      det.className = 'doc-embed';
+      det.innerHTML = `<summary><i class="${DOC_INFO[kind].icon} doc-${kind}"></i><span class="doc-embed-name">${esc(name)}</span><span class="doc-embed-hint">${DOC_INFO[kind].name} · 点击预览</span><i class="fa-solid fa-chevron-down doc-embed-caret"></i></summary><div class="doc-embed-body"></div>`;
+      det.addEventListener('toggle', () => {
+        if (det.open && !det.dataset.done) { det.dataset.done = '1'; renderDoc($('.doc-embed-body', det), encPath(p), kind); }
+      });
+      const ref = after.get(block) || block;
+      if (block.tagName === 'TD' || block.tagName === 'TH') return;   // 表格里只保留链接，不插入预览
+      ref.after(det); after.set(block, det);
+    });
   }
 
   /* ---------- 搜索 ---------- */
@@ -712,7 +935,7 @@
         <summary><i class="tree-caret fa-solid fa-chevron-right"></i><i class="fa-solid fa-folder tree-ico"></i>
           <a class="tree-name" href="${catHref(d.key)}">${esc(d.name)}</a><span class="cat-num">${d.count}</span></summary>
         ${treeHtml(d)}</details></li>`).join('')}${files.map(p => `<li class="tree-file">
-        <a href="${postHref(p)}"><i class="fa-regular fa-file-lines tree-ico"></i><span class="tree-title">${esc(p.title)}</span>
+        <a href="${postHref(p)}"><i class="${p.kind ? DOC_INFO[p.kind].icon + ' doc-' + p.kind : 'fa-regular fa-file-lines'} tree-ico"></i><span class="tree-title">${esc(p.title)}</span>
         <span class="tree-date">${p.date ? fmtDate(p.date) : ''}</span></a></li>`).join('')}</ul>`;
   }
   function renderTagCloud(active) {
@@ -770,6 +993,7 @@
   /* ---------- 路由 ---------- */
   function route() {
     tocCleanup?.(); tocCleanup = null;
+    docCleanups.splice(0).forEach(f => { try { f(); } catch { /* 忽略 */ } });
     closeDrawer();
     $('#searchResults').classList.remove('open');
     closeMobileSheets();
