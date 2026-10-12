@@ -6,6 +6,8 @@ on:
     paths:
       - 'notes/**'
       - '!notes/index.json'
+      - 'scripts/build-index.mjs'
+      - '.github/workflows/build-index.yml'
   workflow_dispatch:
 
 permissions:
