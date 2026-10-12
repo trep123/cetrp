@@ -1134,3 +1134,72 @@ input, select, textarea, button { font-size: max(16px, 1em); }
   .home-stat.is-date b { font-size: 12px; }
   .home-stat span { font-size: 11px; }
 }
+
+/* ========== PDF / Word 预览（2026-10-13） ========== */
+.doc-ico { margin-right: 8px; font-size: .9em; vertical-align: 0.02em; }
+.doc-pdf { color: #e5534b; }
+.doc-docx { color: #4b8fe5; }
+.doc-card-tip { margin-top: 12px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px;
+  background: var(--surface-2); border: 1px dashed var(--border-2); color: var(--text-2); font-size: 13.5px; }
+.doc-card-tip i { color: var(--accent); }
+.post-body.doc-body { margin-top: 18px; }
+.doc-view { position: relative; }
+.doc-toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-solid); box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.doc-tb-group { display: flex; align-items: center; gap: 4px; }
+.doc-toolbar button, .doc-toolbar a { min-width: 34px; height: 34px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font: 13px/1 var(--font); cursor: pointer; }
+.doc-toolbar button:hover, .doc-toolbar a:hover { border-color: var(--border-2); color: var(--accent); background: var(--surface-2); }
+.doc-toolbar .doc-zoom { min-width: 58px; font-family: var(--mono); }
+.doc-pageinfo { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+.doc-page-input { width: 52px; height: 30px; padding: 0 4px; text-align: center; border: 1px solid var(--border-2); border-radius: 6px;
+  background: var(--surface-2); color: var(--text); font: 13px var(--mono); -moz-appearance: textfield; }
+.doc-page-input::-webkit-inner-spin-button, .doc-page-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.doc-stage { border-radius: 10px; background: var(--surface-3); padding: 14px; min-height: 160px; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.doc-loading, .doc-msg { padding: 40px 10px; text-align: center; color: var(--muted); }
+.doc-msg .btn-neon { margin-top: 14px; }
+/* PDF：每页一张画布，宽度 = 容器宽 × 缩放 */
+.pdf-stage { --pdf-zoom: 1; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.pdf-stage.zoomed { align-items: flex-start; }
+.pdf-page { position: relative; width: calc(100% * var(--pdf-zoom)); max-width: none; flex-shrink: 0; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.25); border-radius: 2px; }
+.pdf-page canvas { display: block; width: 100%; height: 100%; max-width: none; border-radius: 2px; }
+.pdf-page-no { position: absolute; right: 8px; bottom: 6px; padding: 1px 7px; border-radius: 10px; background: rgba(0,0,0,.45); color: #fff; font: 11px var(--mono); pointer-events: none; }
+.pdf-page:not(:has(canvas))::after { content: "加载中…"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #999; font-size: 13px; }
+/* Word：保持原文档白纸排版，按容器宽度整体缩放 */
+.docx-stage { padding: 0; }
+.docx-box .docx-wrapper { background: transparent !important; padding: 20px !important; }
+.docx-box .docx-wrapper > section.docx { box-shadow: 0 2px 10px rgba(0,0,0,.25) !important; margin-bottom: 20px !important; color: #000; }
+.docx-box img, .docx-box svg { max-width: none; }
+.docx-box a { color: #0563c1; }
+/* Markdown 里的文档附件 */
+.doc-embed { margin: 14px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); overflow: hidden; }
+.doc-embed > summary { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; user-select: none; }
+.doc-embed > summary::-webkit-details-marker { display: none; }
+.doc-embed > summary > i:first-child { font-size: 20px; }
+.doc-embed-name { flex: 1; min-width: 0; color: var(--heading); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-embed-hint { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.doc-embed-caret { color: var(--muted); transition: transform .2s; }
+.doc-embed[open] .doc-embed-caret { transform: rotate(180deg); }
+.doc-embed-body { padding: 0 10px 10px; }
+.doc-embed .doc-toolbar { top: 0; }
+.markdown .doc-embed p { margin: 0; }
+@media (max-width: 900px) {
+  .doc-toolbar { top: calc(var(--m-bar-h) + var(--m-safe-t)); padding: 6px; border-radius: 0; margin-left: -16px; margin-right: -16px; border-left: 0; border-right: 0; transition: top .25s ease; }
+  body.bar-hidden .doc-toolbar { top: 0; }
+  .doc-toolbar button, .doc-toolbar a { min-width: 38px; height: 38px; padding: 0 6px; }
+  .doc-toolbar .doc-zoom { min-width: 52px; }
+  .post-full .doc-stage { margin-left: -16px; margin-right: -16px; border-radius: 0; padding: 8px; }
+  .post-full .docx-stage { padding: 0; }
+  .pdf-stage { gap: 8px; }
+  .docx-box .docx-wrapper { padding: 6px !important; }
+  .docx-box .docx-wrapper > section.docx { margin-bottom: 8px !important; }
+  .doc-embed .doc-toolbar, .doc-embed .doc-stage { margin-left: 0; margin-right: 0; }
+  .doc-embed .doc-toolbar { position: static; }
+  .doc-embed-hint { display: none; }
+}
+@media (max-width: 360px) {
+  .doc-toolbar { margin-left: -12px; margin-right: -12px; }
+  .post-full .doc-stage { margin-left: -12px; margin-right: -12px; }
+  .doc-toolbar a[target] { display: none; }
+}
+@media print { .doc-toolbar { display: none; } .doc-stage { background: none; padding: 0; } }
