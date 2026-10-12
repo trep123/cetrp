@@ -9,7 +9,7 @@ window.PIXIE_CONFIG = {
   avatar: 'img/Cetrp.png',                        // 留空 = 自动使用 GitHub 头像；也可填 'img/avatar.png'
 
   // 仓库信息：留空时在 <用户名>.github.io/<仓库> 上自动识别
-  repo: { owner: '', name: '', branch: 'main', dir: 'notes' },
+  repo: { owner: 'trep123', name: 'cetrp', branch: 'main', dir: 'notes' },
 
   menu: [
     { name: '主页', url: '#/' },
