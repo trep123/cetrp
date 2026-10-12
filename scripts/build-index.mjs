@@ -1,4 +1,4 @@
-// 扫描 notes/ 下所有 Markdown，生成 notes/index.json
+// 扫描 notes/ 下所有 Markdown、PDF、Word(.docx)，生成 notes/index.json
 // 用法：node scripts/build-index.mjs
 import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -12,7 +12,7 @@ function walk(dir) {
     if (e.name.startsWith('_') || e.name.startsWith('.')) continue; // 草稿和隐藏文件
     const p = join(dir, e.name);
     if (e.isDirectory()) out.push(...walk(p));
-    else if (/\.(md|markdown)$/i.test(e.name)) out.push(relative('.', p).split(sep).join('/'));
+    else if (/\.(md|markdown|pdf|docx)$/i.test(e.name)) out.push(relative('.', p).split(sep).join('/'));
   }
   return out;
 }
