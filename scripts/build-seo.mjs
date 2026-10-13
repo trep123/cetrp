@@ -12,6 +12,9 @@ const SITE = 'https://' + (existsSync('CNAME') ? readFileSync('CNAME', 'utf8').t
 const cfg = readFileSync('config.js', 'utf8');
 const pick = k => (cfg.match(new RegExp(`\\b${k}\\s*:\\s*'([^']*)'`)) || [])[1] || '';
 const SITE_TITLE = pick('title') || 'Notes';
+const HOME_TITLE = pick('seoTitle') || SITE_TITLE;
+// 文章页标题：太短（< 20 字）时补上作者说明，避免搜索引擎提示“标题过短”
+const pageTitle = t => { const full = `${t} - ${SITE_TITLE}`; return full.length < 20 ? `${full} · ${AUTHOR || SITE_TITLE} 的技术笔记` : full; };
 const AUTHOR = pick('author');
 const LICENSE = pick('license');
 
@@ -111,7 +114,7 @@ function page(p) {
 <meta charset="UTF-8">
 <script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(p.title)} - ${esc(SITE_TITLE)}</title>
+<title>${esc(pageTitle(p.title))}</title>
 <meta name="description" content="${esc(p.description)}">
 ${p.tags.length ? `<meta name="keywords" content="${esc(p.tags.join(','))}">\n` : ''}<link rel="canonical" href="${url}">
 <meta property="og:type" content="article">
@@ -159,7 +162,7 @@ writeFileSync('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap
 // index.html：静态标题、描述、canonical，以及 <noscript> 文章列表
 let idx = readFileSync('index.html', 'utf8');
 const siteDesc = `${SITE_TITLE}：${AUTHOR} 的技术笔记，涵盖 Linux、华为网络、Windows Server、HCIA 等。`;
-idx = idx.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(SITE_TITLE)}</title>`);
+idx = idx.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(HOME_TITLE)}</title>`);
 idx = idx.replace(/\n?\s*<!-- SEO:HEAD -->[\s\S]*?<!-- \/SEO:HEAD -->/, '');
 idx = idx.replace(/(<title>[\s\S]*?<\/title>)/, `$1\n  <!-- SEO:HEAD -->\n  <meta name="description" content="${esc(siteDesc)}">\n  <link rel="canonical" href="${SITE}/">\n  <!-- /SEO:HEAD -->`);
 const list = `<!-- SEO:LIST --><noscript><h1>${esc(SITE_TITLE)}</h1><ul>${posts.map(p => `<li><a href="/p/${p.id}/">${esc(p.title)}</a></li>`).join('')}</ul></noscript><!-- /SEO:LIST -->`;
