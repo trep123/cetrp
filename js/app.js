@@ -461,6 +461,7 @@
     if (!homeMd || !homeMd.body.trim()) return '';
     const div = document.createElement('div');
     renderMd(div, homeMd.body, { path: homeMd.path }, true);
+    if (C.mindmap !== false && window.PixieMindmap) PixieMindmap.blocks(div);
     enhanceCode(div);
     const blocks = homeBlocks();
     // 占位符：{{stats}} {{categories}} {{recent}} {{tags}}
@@ -560,9 +561,12 @@
     if (!p.kind) renderMd(body, p.content, p, true);
     if (p.kind) renderDoc(body, encPath(p.path), p.kind, p.title);
     else {
+      const MM = C.mindmap !== false && window.PixieMindmap;
+      if (MM) MM.blocks(body);  // ```markmap 代码块 → 思维导图
       enhanceCode(body);
       anchorHeadings(body);
       if (C.toc) buildToc(body, $('.post-layout'));
+      if (MM) MM.attachToggle(body, $('.post-meta'), p.title);  // 标题层级 → 一键切换思维导图
     }
     countView(p);
     const btn = $('#copyLink');
