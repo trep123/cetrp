@@ -51,7 +51,7 @@ function walk(dir) {
     if (e.name.startsWith('_') || e.name.startsWith('.')) continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) out.push(...walk(p));
-    else if (/\.(md|markdown|pdf|docx)$/i.test(e.name) && !/^readme\.md$/i.test(e.name)) out.push(relative('.', p).split(sep).join('/'));
+    else if (/\.(md|markdown|pdf|docx|xlsx|xlsm|xls|csv)$/i.test(e.name) && !/^readme\.md$/i.test(e.name)) out.push(relative('.', p).split(sep).join('/'));
   }
   return out;
 }
