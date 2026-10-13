@@ -559,7 +559,10 @@
     </div>`;
     const body = $('#postBody');
     if (!p.kind) renderMd(body, p.content, p, true);
-    if (p.kind) renderDoc(body, encPath(p.path), p.kind, p.title);
+    if (p.kind) renderDoc(body, encPath(p.path), p.kind, p.title).then(items => {
+      // 文档渲染完成后生成侧边目录（Word 自带目录 / 标题样式，PDF 书签）
+      if (C.toc && items?.length && body.isConnected && !$('#content .toc')) buildToc(body, $('.post-layout'), items);
+    });
     else {
       const MM = C.mindmap !== false && window.PixieMindmap;
       if (MM) MM.blocks(body);  // ```markmap 代码块 → 思维导图
@@ -583,22 +586,26 @@
   const repoFileUrl = p => `https://github.com/${repo.owner}/${repo.name}/blob/${encodeURIComponent(repo.branch)}/${encPath(p.path)}`;
 
   /* ---------- 目录 ---------- */
-  function buildToc(body, layout) {
-    const hs = $$('h2, h3, h4', body);
-    if (hs.length < 2) return;
+  function buildToc(body, layout, items) {
+    // items：[{ el, text, lv }]；不传时取正文里的 h2-h4
+    items = items || $$('h2, h3, h4', body).map(h => ({ el: h, text: h.dataset.text ?? h.textContent, lv: +h.tagName[1] }));
+    if (items.length < 2 || !layout) return;
+    items.forEach((it, i) => { if (!it.el.id) it.el.id = 'toc-t-' + i; });
+    const hs = items.map(it => it.el);
     const toc = document.createElement('nav');
     const wide = window.matchMedia ? matchMedia('(min-width: 1280px)').matches : innerWidth >= 1280;
     toc.className = 'toc' + (wide ? '' : ' collapsed');
     toc.innerHTML = `<div class="toc-head"><span><i class="fa-solid fa-list-ul"></i> 目录</span><i class="fa-solid fa-chevron-down"></i></div>
-      <ul class="toc-list">${hs.map(h => `<li class="lv${h.tagName[1]}"><a href="#" data-id="${h.id}">${esc(h.dataset.text ?? h.textContent)}</a></li>`).join('')}</ul>`;
+      <ul class="toc-list">${items.map(it => `<li class="lv${it.lv}"><a href="#" data-id="${esc(it.el.id)}">${esc(it.text)}</a></li>`).join('')}</ul>`;
     layout.classList.add('has-toc');
     if (wide) layout.append(toc); else layout.prepend(toc);
+    document.body.classList.add('has-toc');
     $('.toc-head', toc).onclick = () => toc.classList.toggle('collapsed');
     toc.addEventListener('click', e => {
       const a = e.target.closest('a[data-id]');
       if (!a) return;
       e.preventDefault();
-      document.getElementById(a.dataset.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      jumpTo(document.getElementById(a.dataset.id));
     });
     const links = $$('a[data-id]', toc);
     const onScroll = () => {
@@ -665,6 +672,87 @@
     el.insertAdjacentHTML('beforeend', `<div class="doc-msg"><i class="fa-solid fa-triangle-exclamation"></i> 预览失败：${esc(e.message || String(e))}<br>
       <a class="btn-neon" href="${url}" download><i class="fa-solid fa-download"></i> 下载文件</a></div>`);
   }
+  // 平滑滚动到元素，并留出顶部栏的高度
+  function jumpTo(t) {
+    if (!t) return false;
+    const off = innerWidth <= 900 ? 64 : 90;
+    const y = t.getBoundingClientRect().top + scrollY - off;
+    scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    // 横向滚动的预览区（放大后）里也要定位
+    const sc = t.closest('.doc-stage');
+    if (sc && sc.scrollWidth > sc.clientWidth) sc.scrollLeft = Math.max(0, t.getBoundingClientRect().left - sc.getBoundingClientRect().left + sc.scrollLeft - 20);
+    return true;
+  }
+  // Word 内部链接（目录、交叉引用 #_Toc… / #书签）：拦截后在页面内定位，不触发路由
+  function bindDocAnchors(box) {
+    box.addEventListener('click', e => {
+      const a = e.target.closest('a[href^="#"]');
+      if (!a || !box.contains(a)) return;
+      e.preventDefault();
+      const id = safeDecode(a.getAttribute('href').slice(1));
+      const t = box.querySelector(`[id="${CSS.escape(id)}"], a[name="${CSS.escape(id)}"]`);
+      if (!jumpTo(t)) toast('文档中找不到这个书签');
+    });
+  }
+  // 生成 Word 文档的侧边目录：优先用文档自带目录，其次标题样式，最后按「一、」「（一）」等中文编号识别
+  function docxTocItems(box, headingCls) {
+    const strip = t => t.replace(/[\s.·…\-_]*\d+\s*$/, '').replace(/\s+/g, ' ').trim();
+    const links = $$('a[href^="#"]', box).filter(a => /^#_Toc/i.test(a.getAttribute('href')));
+    if (links.length >= 2) {
+      const lvOf = new Map(), items = [];
+      for (const a of links) {
+        const t = box.querySelector(`[id="${CSS.escape(safeDecode(a.getAttribute('href').slice(1)))}"]`);
+        const text = strip(a.textContent);
+        if (!t || !text) continue;
+        const p = a.closest('p'), key = (p?.className || '').split(' ')[0] + '|' + (p?.style.marginLeft || '');
+        if (!lvOf.has(key)) lvOf.set(key, lvOf.size);
+        items.push({ el: t.closest('p') || t, text, key });
+      }
+      // 按目录段落样式出现的顺序分层；超过 3 层合并到第 3 层
+      const order = [...lvOf.keys()];
+      items.forEach(it => { it.lv = 2 + Math.min(2, order.indexOf(it.key)); });
+      if (items.length >= 2) return items;
+    }
+    const ps = $$('section.docx p', box).filter(p => p.textContent.trim() && !p.closest('table, header, footer') && !p.querySelector('a[href^="#_Toc"]'));
+    if (headingCls.size) {
+      const items = ps.map(p => {
+        const c = [...p.classList].find(c => headingCls.has(c));
+        return c ? { el: p, text: strip(p.textContent).slice(0, 80) || p.textContent.trim(), lv: 2 + Math.min(2, headingCls.get(c)) } : null;
+      }).filter(Boolean);
+      if (items.length >= 2) return items;
+    }
+    const items = [];
+    for (const p of ps) {
+      const t = p.textContent.replace(/\s+/g, ' ').trim();
+      if (t.length > 50) continue;
+      if (/^第[一二三四五六七八九十百零\d]+[章部篇]/.test(t)) items.push({ el: p, text: t, lv: 2 });
+      else if (/^[一二三四五六七八九十]+[、.．]/.test(t) || /^第[一二三四五六七八九十百零\d]+节/.test(t)) items.push({ el: p, text: t, lv: items.some(i => i.lv === 2 && /^第/.test(i.text)) ? 3 : 2 });
+      else if (/^[（(][一二三四五六七八九十]+[)）]/.test(t)) items.push({ el: p, text: t, lv: 3 });
+    }
+    return items.length >= 2 && items.length <= 300 ? items : [];
+  }
+  // 从 styles.xml 找出标题样式（heading 1-3 或大纲级别 0-2），对应 docx-preview 的 class
+  async function docxHeadingClasses(buf) {
+    const map = new Map();
+    try {
+      const zip = await window.JSZip.loadAsync(buf);
+      const xml = await zip.file('word/styles.xml')?.async('string');
+      if (!xml) return map;
+      const d = new DOMParser().parseFromString(xml, 'application/xml');
+      const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+      for (const st of d.getElementsByTagNameNS(W, 'style')) {
+        if (st.getAttributeNS(W, 'type') !== 'paragraph') continue;
+        const id = st.getAttributeNS(W, 'styleId');
+        const name = (st.getElementsByTagNameNS(W, 'name')[0]?.getAttributeNS(W, 'val') || '').toLowerCase();
+        const ol = st.getElementsByTagNameNS(W, 'outlineLvl')[0]?.getAttributeNS(W, 'val');
+        let lv = /^heading ([1-3])$/.exec(name)?.[1] - 1;
+        if (Number.isNaN(lv) && ol != null && +ol <= 2) lv = +ol;
+        if (id && lv >= 0 && lv <= 2) map.set('docx_' + id.replace(/[ .]+/g, '-').replace(/&+/g, 'and').toLowerCase(), lv);
+      }
+    } catch { /* 忽略 */ }
+    return map;
+  }
+
   // 通用：缩放、页码、跳页
   function docControls(el, { onZoom, pages, scroller }) {
     let zoom = 1;
@@ -739,7 +827,50 @@
       if (!alive || g !== gen) return;
       d.querySelector('canvas')?.remove();
       d.prepend(c);
+      if (!d.dataset.links) { d.dataset.links = '1'; addPdfLinks(d, page, base).catch(() => { d.dataset.links = ''; }); }
     };
+    // PDF 里的链接（目录页的页内跳转、网址）：在画布上叠一层透明链接
+    const destPage = async dest => {
+      if (typeof dest === 'string') dest = await doc.getDestination(dest);
+      if (!Array.isArray(dest) || !dest[0]) return null;
+      const idx = typeof dest[0] === 'object' ? await doc.getPageIndex(dest[0]) : +dest[0];
+      // XYZ / FitH / FitBH 带有纵坐标，换算成页内百分比
+      const kind = dest[1]?.name, y = kind === 'XYZ' ? dest[3] : (kind === 'FitH' || kind === 'FitBH') ? dest[2] : null;
+      let frac = 0;
+      if (y != null && nodes[idx]) {
+        const view = (await doc.getPage(idx + 1)).view;
+        frac = Math.min(0.98, Math.max(0, (view[3] - y) / (view[3] - view[1])));
+      }
+      return { idx, frac };
+    };
+    const markerOf = ({ idx, frac }) => {
+      const n = nodes[idx];
+      if (!n) return null;
+      if (!frac) return n;
+      const m = document.createElement('span');
+      m.className = 'pdf-anchor'; m.style.top = (frac * 100).toFixed(2) + '%';
+      n.appendChild(m);
+      return m;
+    };
+    const goDest = async dest => { const r = await destPage(dest).catch(() => null); if (!r) return toast('找不到跳转位置'); jumpTo(markerOf(r)); };
+    async function addPdfLinks(d, page, base) {
+      const anns = (await page.getAnnotations({ intent: 'display' })).filter(a => a.subtype === 'Link' && (a.dest || a.url || a.unsafeUrl));
+      if (!alive) return;
+      for (const a of anns) {
+        const [x1, y1, x2, y2] = base.convertToViewportRectangle(a.rect);
+        const el = document.createElement('a');
+        el.className = 'pdf-link';
+        Object.assign(el.style, {
+          left: (Math.min(x1, x2) / base.width * 100) + '%', top: (Math.min(y1, y2) / base.height * 100) + '%',
+          width: (Math.abs(x2 - x1) / base.width * 100) + '%', height: (Math.abs(y2 - y1) / base.height * 100) + '%',
+        });
+        const href = a.url || a.unsafeUrl;
+        if (href && /^(https?:|mailto:)/i.test(href)) { el.href = href; el.target = '_blank'; el.rel = 'noopener'; el.title = href; }
+        else if (a.dest) { el.href = '#'; el.addEventListener('click', e => { e.preventDefault(); goDest(a.dest); }); }
+        else continue;
+        d.appendChild(el);
+      }
+    }
     const clear = d => { const c = d.querySelector('canvas'); if (c) { c.width = c.height = 0; c.remove(); } d.dataset.g = ''; };
     const io = new IntersectionObserver(es => es.forEach(e => (e.isIntersecting ? draw(e.target) : clear(e.target))), { root: null, rootMargin: '1200px 0px' });
     nodes.forEach(n => io.observe(n));
@@ -760,6 +891,21 @@
     addEventListener('resize', onResize);
     docCleanups.push(() => removeEventListener('resize', onResize));
     ctl.refresh();
+    // PDF 书签 → 侧边目录
+    const outline = await doc.getOutline().catch(() => null);
+    if (!outline?.length || !alive) return [];
+    const items = [];
+    const walk = async (list, lv) => {
+      for (const o of list) {
+        if (items.length >= 300) return;
+        const r = o.dest ? await destPage(o.dest).catch(() => null) : null;
+        const el = r && markerOf(r);
+        if (el && o.title?.trim()) items.push({ el, text: o.title.trim(), lv: Math.min(4, lv) });
+        if (o.items?.length && lv < 4) await walk(o.items, lv + 1);
+      }
+    };
+    await walk(outline, 2);
+    return alive ? items : [];
   }
 
   async function renderDocx(el, url) {
@@ -778,6 +924,7 @@
       experimental: true, renderHeaders: true, renderFooters: true, renderFootnotes: true, renderEndnotes: true,
     });
     $$('a[href]', box).forEach(a => { if (/^https?:/i.test(a.getAttribute('href'))) { a.target = '_blank'; a.rel = 'noopener'; } });
+    bindDocAnchors(box);
     const wrap = $('.docx-wrapper', box) || box;
     const pages = () => $$('section.docx', wrap);
     let zoom = 1;
@@ -796,12 +943,13 @@
     addEventListener('resize', onResize);
     docCleanups.push(() => removeEventListener('resize', onResize));
     ctl.refresh();
+    return docxTocItems(box, await docxHeadingClasses(buf));
   }
 
   function renderDoc(el, url, kind) {
     el.classList.add('doc-view');
     const run = kind === 'pdf' ? renderPdf : renderDocx;
-    return run(el, url).catch(e => docError(el, url, e));
+    return run(el, url).catch(e => { docError(el, url, e); return []; });
   }
 
   // Markdown 里指向 .pdf / .docx 的链接：在所在段落后面插入可折叠的预览框
@@ -995,7 +1143,15 @@
   }
 
   /* ---------- 路由 ---------- */
+  let lastHash = '';
   function route() {
+    const raw = location.hash.slice(1);
+    if (raw && raw[0] !== '/') {
+      // 页内锚点（如 #_Toc123、#fn1）：定位后恢复原地址，不当成页面跳转
+      const t = document.getElementById(safeDecode(raw)) || document.querySelector(`a[name="${CSS.escape(safeDecode(raw))}"]`);
+      if (t && lastHash) { history.replaceState(null, '', lastHash); jumpTo(t); return; }
+    }
+    lastHash = location.hash || '#/';
     tocCleanup?.(); tocCleanup = null;
     docCleanups.splice(0).forEach(f => { try { f(); } catch { /* 忽略 */ } });
     closeDrawer();
