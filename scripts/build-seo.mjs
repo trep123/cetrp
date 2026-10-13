@@ -109,6 +109,7 @@ function page(p) {
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<script src="/protect.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(p.title)} - ${esc(SITE_TITLE)}</title>
 <meta name="description" content="${esc(p.description)}">
