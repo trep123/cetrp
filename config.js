@@ -4,6 +4,7 @@
  */
 window.PIXIE_CONFIG = {
   title: '林的笔记',                 // 浏览器标签标题
+  seoTitle: '林的笔记 - Cetrp 的技术博客：Linux、华为网络、Windows Server、HCIA',  // 首页 <title>（SEO，建议 15~60 字）
   author: 'Cetrp',              // 侧栏大字名字，也用于版权信息
   subtitle: '林',
   avatar: 'img/Cetrp.png',                        // 留空 = 自动使用 GitHub 头像；也可填 'img/avatar.png'
