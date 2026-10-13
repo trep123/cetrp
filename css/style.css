@@ -1203,3 +1203,10 @@ input, select, textarea, button { font-size: max(16px, 1em); }
   .doc-toolbar a[target] { display: none; }
 }
 @media print { .doc-toolbar { display: none; } .doc-stage { background: none; padding: 0; } }
+
+/* ---------- 文档内跳转（PDF 链接层 / 书签定位） ---------- */
+.pdf-link { position: absolute; z-index: 2; display: block; border-radius: 2px; cursor: pointer; }
+.pdf-link:hover { background: rgba(0, 140, 255, .15); outline: 1px solid rgba(0, 140, 255, .45); }
+.pdf-anchor { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; }
+.docx-box a[href^="#"] { cursor: pointer; }
+.docx-box a[href^="#"]:hover { background: rgba(0, 140, 255, .12); }
