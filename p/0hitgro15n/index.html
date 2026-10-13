@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mindmap="static">
 <head>
 <meta charset="UTF-8">
 <script src="/protect.js"></script>
@@ -18,7 +18,7 @@
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
-.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}.meta .mm-toggle a{color:#2563eb;text-decoration:none}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
 code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
 th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
 footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
@@ -29,7 +29,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <article>
 <h1>Linux 学习笔记（10）：Shell 脚本基础</h1>
 <div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span><span>#Linux</span><span>#Shell</span></div>
-<h2>Shell scripts概念</h2>
+<div id="postBody"><h2>Shell scripts概念</h2>
 <p><strong>什么是 Shell scripts</strong></p>
 <p>什么是 shell script (程序化脚本) 呢？就字面上的意义，我们将他分为两部份。 在『 shell 』部分，我们在 十一章的 BASH 当中已经提过了，那是一个文字接口底下让我们与系统沟通的一个工具接口。那么『 script 』是啥？ 字面上的意义， script 是『脚本、剧本』的意思。整句话是说， shell script 是针对 shell 所写的『剧本！』</p>
 <p>什么东西啊？其实， shell script 是利用 shell 的功能所写的一个『程序 (program)』，这个程序是使用纯文本文件，将一些 shell 的语法与指令(含外部指令)写在里面， 搭配正规表示法、管线命令与数据流重导向等功能，以达到我们所想要的处理目的。</p>
@@ -651,10 +651,11 @@ case $1 in                             # 现在使用，可以用上面两行替
         ;;
 esac
 </code></pre>
-
+</div>
 <a class="btn" href="/#/p/0hitgro15n">在完整博客中阅读（目录、搜索、主题）</a>
 </article>
 <footer>© Cetrp · CC BY-NC-SA 4.0</footer>
 </div>
+<script src="/js/mindmap.js" defer></script>
 </body>
 </html>

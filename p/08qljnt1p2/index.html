@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mindmap="static">
 <head>
 <meta charset="UTF-8">
 <script src="/protect.js"></script>
@@ -18,7 +18,7 @@
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
-.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}.meta .mm-toggle a{color:#2563eb;text-decoration:none}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
 code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
 th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
 footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
@@ -29,7 +29,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <article>
 <h1>分解实验04：DHCP原理及应用</h1>
 <div class="meta"><span>2026-10-11</span><span>Network / Huawei</span><span>#软考</span><span>#网络工程师</span><span>#华为</span><span>#DHCP</span></div>
-<p>本实验把一台路由器配置成 DHCP 服务器端，分两个场景演示：场景 1 基于接口地址池分配地址，场景 2 创建全局地址池 test 并在接口下调用。</p>
+<div id="postBody"><p>本实验把一台路由器配置成 DHCP 服务器端，分两个场景演示：场景 1 基于接口地址池分配地址，场景 2 创建全局地址池 test 并在接口下调用。</p>
 <!-- more -->
 
 <h2>场景 1：DHCP 接口地址池配置</h2>
@@ -119,10 +119,11 @@ Info: It&#39;s successful to create an IP address pool. //提示成功创建了�
 <p>注意：原文地址池视图提示符写作 <code>[Huawei-ip-pool-pool2]</code>，与上面创建的地址池名 test 不一致，已改为 <code>[Huawei-ip-pool-test]</code>；原文接口视图提示符写作 <code>[Huawei-GigabitEthernet0/0/1]</code>，与进入的 GigabitEthernet0/0/0 不一致，已改为 0/0/0。</p>
 </blockquote>
 <p><code>dhcp select global</code> 的说明（原文注释）：如果有多个 DHCP 地址池，会首先判断终端用户属于哪个 VLAN，最终使用该 VLANIF 相同网段的地址池。比如 DHCP 服务器配置了 TEST1 和 TEST2 两个地址池分别是 192.168.10.0/24 和 192.168.20.0/24，用户网关分别是 VLANIF10：192.168.10.254 和 VLANIF20：192.168.20.254。如果终端属于 VLAN10，那么会给该终端分配与 VLANIF10：192.168.10.254 相同网段的地址池，即地址池 TEST1。</p>
-
+</div>
 <a class="btn" href="/#/p/08qljnt1p2">在完整博客中阅读（目录、搜索、主题）</a>
 </article>
 <footer>© Cetrp · CC BY-NC-SA 4.0</footer>
 </div>
+<script src="/js/mindmap.js" defer></script>
 </body>
 </html>

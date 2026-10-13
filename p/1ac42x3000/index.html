@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mindmap="static">
 <head>
 <meta charset="UTF-8">
 <script src="/protect.js"></script>
@@ -18,7 +18,7 @@
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
-.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}.meta .mm-toggle a{color:#2563eb;text-decoration:none}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
 code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
 th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
 footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
@@ -29,7 +29,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <article>
 <h1>分解实验09：策略路由</h1>
 <div class="meta"><span>2026-10-11</span><span>Network / Huawei</span><span>#软考</span><span>#网络工程师</span><span>#华为</span><span>#策略路由</span><span>#traffic-policy</span><span>#NAT</span></div>
-<p>本实验先说明策略路由与路由策略的区别，然后在双出口的出口路由器上配置 NAT、两条默认路由和基于 traffic-policy 的策略路由：教学楼 PC1 走电信出口、宿舍楼 PC2 走联通出口，任一出口故障时流量自动切换到另一个出口。</p>
+<div id="postBody"><p>本实验先说明策略路由与路由策略的区别，然后在双出口的出口路由器上配置 NAT、两条默认路由和基于 traffic-policy 的策略路由：教学楼 PC1 走电信出口、宿舍楼 PC2 走联通出口，任一出口故障时流量自动切换到另一个出口。</p>
 <!-- more -->
 
 <h2>1、策略路由原理</h2>
@@ -293,10 +293,11 @@ traceroute to 100.1.1.1, 8 hops max
 <p>注意：原文这几段 tracert 输出有排版瑕疵（「tra ce工oute」、「8 hops ma x」断开、最后一段第 2 跳漏写序号「2」），这里已按正常输出格式整理，跳数和时延未改。</p>
 </blockquote>
 <p>完成流量自动切换，实验成功！</p>
-
+</div>
 <a class="btn" href="/#/p/1ac42x3000">在完整博客中阅读（目录、搜索、主题）</a>
 </article>
 <footer>© Cetrp · CC BY-NC-SA 4.0</footer>
 </div>
+<script src="/js/mindmap.js" defer></script>
 </body>
 </html>
