@@ -1210,3 +1210,34 @@ input, select, textarea, button { font-size: max(16px, 1em); }
 .pdf-anchor { position: absolute; left: 0; width: 1px; height: 1px; pointer-events: none; }
 .docx-box a[href^="#"] { cursor: pointer; }
 .docx-box a[href^="#"]:hover { background: rgba(0, 140, 255, .12); }
+
+/* ---------- Excel / CSV 预览 ---------- */
+.doc-xlsx, .doc-xlsm, .doc-xls { color: #21a366; }
+.doc-csv { color: #4caf7a; }
+.sheet-toolbar { justify-content: space-between; }
+.sheet-tabs { display: flex; gap: 4px; overflow-x: auto; max-width: 100%; flex: 1 1 auto; scrollbar-width: thin; }
+.sheet-tabs[hidden] { display: none; }
+.doc-toolbar .sheet-tabs button { flex-shrink: 0; height: 30px; padding: 0 12px; border: 1px solid var(--border-2); white-space: nowrap; }
+.doc-toolbar .sheet-tabs button.active { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.sheet-info { color: var(--muted); font: 12.5px var(--mono); margin-right: 6px; white-space: nowrap; }
+.sheet-stage { padding: 0; overflow: visible; background: none; }
+.sheet-wrap { max-height: 78vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; background: #fff; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.sheet-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; margin: 0; table-layout: auto;
+  font: 13px/1.45 Calibri, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: #1f1f1f; background: #fff; }
+.sheet-table th, .sheet-table td { border: 0; border-right: 1px solid #e1e1e1; border-bottom: 1px solid #e1e1e1; padding: 3px 8px;
+  min-width: 48px; max-width: 480px; vertical-align: top; text-align: left; white-space: pre-wrap; word-break: break-word; background: #fff; }
+.sheet-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sheet-table td.bool { text-align: center; }
+.sheet-table td.err { color: #c00; }
+.sheet-table td a { color: #0563c1; }
+.sheet-table thead th { position: sticky; top: 0; z-index: 2; background: #f3f3f3; color: #555; text-align: center; font-weight: 600; font-size: 12px; }
+.sheet-table tbody th { position: sticky; left: 0; z-index: 1; background: #f3f3f3; color: #666; text-align: center; font-weight: 400; font-size: 12px; min-width: 40px; }
+.sheet-table thead th.sheet-corner { left: 0; z-index: 3; }
+.sheet-table col.sheet-rn { width: 46px; }
+.sheet-table tbody tr:hover td { background: #eef5ff; }
+.sheet-more { display: block; margin: 12px auto 0; }
+@media (max-width: 900px) {
+  .sheet-wrap { max-height: 70vh; border-radius: 8px; }
+  .sheet-table { font-size: 12px; }
+  .sheet-table td { max-width: 260px; }
+}
