@@ -96,7 +96,7 @@ function build(path) {
 const STYLE = `body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
-.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}.meta .mm-toggle a{color:#2563eb;text-decoration:none}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
 code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
 th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
 footer{color:#999;font-size:13px;text-align:center;margin-top:28px}`;
@@ -106,7 +106,7 @@ function page(p) {
   const ld = { '@context': 'https://schema.org', '@type': 'BlogPosting', headline: p.title, description: p.description, url,
     author: { '@type': 'Person', name: AUTHOR }, ...(p.date ? { datePublished: fmtDate(p.date) } : {}), dateModified: p.lastmod, keywords: p.tags.join(',') };
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mindmap="static">
 <head>
 <meta charset="UTF-8">
 <script src="/protect.js"></script>
@@ -129,11 +129,12 @@ ${p.tags.length ? `<meta name="keywords" content="${esc(p.tags.join(','))}">\n` 
 <article>
 <h1>${esc(p.title)}</h1>
 <div class="meta">${p.date ? `<span>${fmtDate(p.date)}</span>` : ''}${p.category.length ? `<span>${esc(p.category.join(' / '))}</span>` : ''}${p.tags.map(t => `<span>#${esc(t)}</span>`).join('')}</div>
-${p.html}
+<div id="postBody">${p.html}</div>
 <a class="btn" href="/#/p/${p.id}">在完整博客中阅读（目录、搜索、主题）</a>
 </article>
 <footer>© ${esc(AUTHOR)}${LICENSE ? ` · ${esc(LICENSE)}` : ''}</footer>
 </div>
+<script src="/js/mindmap.js" defer></script>
 </body>
 </html>
 `;
