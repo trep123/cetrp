@@ -109,7 +109,7 @@ function page(p) {
 <html lang="zh-CN" data-mindmap="static">
 <head>
 <meta charset="UTF-8">
-<script src="/protect.js"></script>
+<script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(p.title)} - ${esc(SITE_TITLE)}</title>
 <meta name="description" content="${esc(p.description)}">
