@@ -75,7 +75,7 @@ description: 一句话摘要，显示在首页卡片和搜索引擎结果里。
 ### 图片与附件
 - 图片放 `img/<分类>/`（如 `img/network/`），正文里用**相对当前 md 文件的路径**引用。
   - 例：`notes/Network/Huawei/02-xx.md` 引用 `img/network/a.png` → `![](../../../img/network/a.png)`
-  - 也可以在笔记同目录建 `assets/` 放图：`![](assets/a.png)`（`assets` 里的 md 以外文件不会被当成笔记）
+  - 也可以在笔记同目录建 `assets/` 放图：`![](assets/a.png)`（图片不会被当成笔记；但 `.md/.pdf/.docx` 放进去会被当成文章）
 - 文件名建议用英文或数字，避免空格。
 - 在正文里链接仓库内的 `.pdf` / `.docx`，会以内嵌预览形式显示；链接其他 `.md` 笔记会自动变成站内链接。
 
