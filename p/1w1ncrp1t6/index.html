@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>部署 Roundcube + Postfix + Dovecot + SSL - 林的笔记</title>
+<meta name="description" content="在 Debian 上用 Postfix 收发邮件、Dovecot 提供 IMAPS/POP3S 与 SASL 认证、Roundcube 做 Webmail，全程 SSL 加密。">
+<meta name="keywords" content="Postfix,Dovecot,Roundcube,SSL,Debian">
+<link rel="canonical" href="https://0x-z.cn/p/1w1ncrp1t6/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="部署 Roundcube + Postfix + Dovecot + SSL">
+<meta property="og:description" content="在 Debian 上用 Postfix 收发邮件、Dovecot 提供 IMAPS/POP3S 与 SASL 认证、Roundcube 做 Webmail，全程 SSL 加密。">
+<meta property="og:url" content="https://0x-z.cn/p/1w1ncrp1t6/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"部署 Roundcube + Postfix + Dovecot + SSL","description":"在 Debian 上用 Postfix 收发邮件、Dovecot 提供 IMAPS/POP3S 与 SASL 认证、Roundcube 做 Webmail，全程 SSL 加密。","url":"https://0x-z.cn/p/1w1ncrp1t6/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-10","dateModified":"2026-10-10","keywords":"Postfix,Dovecot,Roundcube,SSL,Debian"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/1w1ncrp1t6">在博客中阅读</a></header>
+<article>
+<h1>部署 Roundcube + Postfix + Dovecot + SSL</h1>
+<div class="meta"><span>2026-10-10</span><span>Linux / Debian</span><span>#Postfix</span><span>#Dovecot</span><span>#Roundcube</span><span>#SSL</span><span>#Debian</span></div>
+<p>本文记录在 Debian 上搭建一套完整邮件服务的过程：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>作用</th>
+<th>端口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Postfix</td>
+<td>SMTP 发信 / 收信</td>
+<td>25、587（submission）、465（smtps）</td>
+</tr>
+<tr>
+<td>Dovecot</td>
+<td>IMAP / POP3 取信，并为 Postfix 提供 SASL 认证</td>
+<td>993（imaps）、995（pop3s）</td>
+</tr>
+<tr>
+<td>Roundcube</td>
+<td>网页邮箱客户端</td>
+<td>80 / 443</td>
+</tr>
+</tbody></table>
+<p>示例环境：域名 <code>cmcc.cn</code>，邮件主机 <code>mail.cmcc.cn</code>，证书 <code>/etc/ssl/private/mail.crt</code>、私钥 <code>/etc/ssl/private/mail.key</code>，CA 证书在 <code>/etc/ssl/myca/</code>。</p>
+<!-- more -->
+
+<h2>一、安装软件包</h2>
+<pre><code class="language-bash">apt install postfix dovecot-* -y
+</code></pre>
+<h2>二、配置 Postfix</h2>
+<h3>1. 主配置 <code>/etc/postfix/main.cf</code></h3>
+<blockquote>
+<p>Postfix 配置文件只支持以 <code>#</code> 开头的整行注释，<strong>不能在行尾写注释</strong>，否则会被当成参数值的一部分。</p>
+</blockquote>
+<pre><code class="language-ini"># ---------- 基础 ----------
+# SMTP 欢迎横幅，$myhostname、$mail_name 为内置变量
+smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+# 关闭新邮件提醒（biff）
+biff = no
+# 不自动在本地地址后追加 .$mydomain
+append_dot_mydomain = no
+# 邮件延迟超过 4 小时发送警告（默认关闭）
+#delay_warning_time = 4h
+readme_directory = no
+# 兼容级别，使用 3.6 版本的默认行为
+compatibility_level = 3.6
+
+# ---------- 主机与域名 ----------
+myhostname = mail.cmcc.cn
+mydomain = cmcc.cn
+# 发件地址的域名，从 /etc/mailname 读取
+myorigin = /etc/mailname
+# 本机负责接收的域名
+mydestination = $myhostname, mail.$mydomain, $mydomain
+# 不使用上游中继
+relayhost =
+# 信任的网络（实验环境写法，见文末注意事项）
+mynetworks = 0.0.0.0/0
+inet_interfaces = all
+# 同时使用 IPv4 和 IPv6（只用 IPv4 请写 ipv4）
+inet_protocols = all
+
+# ---------- 邮箱 ----------
+# 使用 Maildir 格式，存放在用户家目录的 Maildir/ 下
+home_mailbox = Maildir/
+# 0 表示不限制邮箱大小
+mailbox_size_limit = 0
+# 地址扩展分隔符，如 user1+tag@cmcc.cn
+recipient_delimiter = +
+alias_maps = hash:/etc/aliases
+alias_database = hash:/etc/aliases
+
+# ---------- TLS：作为服务端（接收连接） ----------
+smtpd_use_tls = yes
+smtpd_tls_cert_file = /etc/ssl/private/mail.crt
+smtpd_tls_key_file = /etc/ssl/private/mail.key
+# 强制客户端使用 TLS
+smtpd_tls_security_level = encrypt
+smtpd_tls_session_cache_database = btree:${data_directory}/smtpd_scache
+
+# ---------- TLS：作为客户端（向外投递） ----------
+# 用来校验对方服务器证书的 CA
+smtp_tls_CAfile = /etc/ssl/myca/mail.crt
+smtp_tls_security_level = encrypt
+smtp_tls_session_cache_database = btree:${data_directory}/smtp_scache
+
+# ---------- SASL 认证（交给 Dovecot） ----------
+smtpd_sasl_type = dovecot
+# 对应 Dovecot 的 /var/spool/postfix/private/auth 套接字
+smtpd_sasl_path = private/auth
+smtpd_sasl_auth_enable = yes
+# 禁止匿名认证
+smtpd_sasl_security_options = noanonymous
+smtpd_sasl_local_domain = $myhostname
+
+# ---------- 访问控制 ----------
+# 收件人限制：信任网络、发往本域、已认证用户放行，其余拒绝
+smtpd_recipient_restrictions = permit_mynetworks, permit_auth_destination, permit_sasl_authenticated, reject
+# 中继限制：信任网络、已认证用户可中继，其他非本域目标延迟拒绝
+smtpd_relay_restrictions = permit_mynetworks, permit_sasl_authenticated, defer_unauth_destination
+</code></pre>
+<h3>2. 服务配置 <code>/etc/postfix/master.cf</code></h3>
+<p>开启 25、587（STARTTLS 提交）和 465（SSL 直连提交）三个入口。<code>-o</code> 参数行必须以空格开头，并紧跟在所属服务下面。</p>
+<pre><code class="language-ini"># ==========================================================================
+# service    type  private unpriv  chroot  wakeup  maxproc command + args
+# ==========================================================================
+# 25 端口：服务器之间收发
+smtp       inet  n       -       y       -       -       smtpd
+
+# 587 端口：客户端提交邮件（STARTTLS，必须认证）
+submission inet  n       -       y       -       -       smtpd
+  -o syslog_name=postfix/submission
+  -o smtpd_tls_security_level=encrypt
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_tls_auth_only=yes
+  -o smtpd_reject_unlisted_recipient=no
+  -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+
+# 465 端口：客户端提交邮件（SSL 直连，Roundcube 使用）
+smtps      inet  n       -       y       -       -       smtpd
+  -o syslog_name=postfix/smtps
+  -o smtpd_tls_wrappermode=yes
+  -o smtpd_sasl_auth_enable=yes
+  -o smtpd_reject_unlisted_recipient=no
+  -o smtpd_recipient_restrictions=permit_sasl_authenticated,reject
+  -o milter_macro_daemon_name=ORIGINATING
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>syslog_name</code></td>
+<td>日志中显示的服务名，便于区分端口</td>
+</tr>
+<tr>
+<td><code>smtpd_tls_security_level=encrypt</code></td>
+<td>强制 TLS</td>
+</tr>
+<tr>
+<td><code>smtpd_tls_wrappermode=yes</code></td>
+<td>连接建立即走 SSL（465 端口必需）</td>
+</tr>
+<tr>
+<td><code>smtpd_tls_auth_only=yes</code></td>
+<td>只有在 TLS 之后才允许认证</td>
+</tr>
+<tr>
+<td><code>smtpd_reject_unlisted_recipient=no</code></td>
+<td>不因收件人不在列表中而拒绝</td>
+</tr>
+<tr>
+<td><code>permit_sasl_authenticated,reject</code></td>
+<td>只允许已认证用户发信</td>
+</tr>
+<tr>
+<td><code>milter_macro_daemon_name=ORIGINATING</code></td>
+<td>标记为本地用户发出的邮件</td>
+</tr>
+</tbody></table>
+<h2>三、配置 Dovecot</h2>
+<p>Dovecot 的注释同样用 <code>#</code>。</p>
+<h3>1. <code>/etc/dovecot/dovecot.conf</code></h3>
+<pre><code class="language-ini"># 监听所有 IPv4 和 IPv6 地址
+listen = *, ::
+</code></pre>
+<h3>2. <code>/etc/dovecot/conf.d/10-auth.conf</code></h3>
+<pre><code class="language-ini"># 禁止未加密的明文认证
+disable_plaintext_auth = yes
+# 认证机制，login 用于兼容 Outlook 等客户端
+auth_mechanisms = plain login
+</code></pre>
+<h3>3. <code>/etc/dovecot/conf.d/10-mail.conf</code></h3>
+<pre><code class="language-ini"># 与 Postfix 的 home_mailbox = Maildir/ 保持一致
+mail_location = maildir:~/Maildir
+#mail_location = mbox:~/mail:INBOX=/var/mail/%u
+</code></pre>
+<h3>4. <code>/etc/dovecot/conf.d/10-master.conf</code></h3>
+<pre><code class="language-ini">service imap-login {
+  # 关闭明文 IMAP（143）
+  inet_listener imap {
+    port = 0
+  }
+  # 保留 IMAPS，默认 993
+  inet_listener imaps {
+  }
+}
+
+service pop3-login {
+  # 关闭明文 POP3（110）
+  inet_listener pop3 {
+    port = 0
+  }
+  # 保留 POP3S，默认 995
+  inet_listener pop3s {
+  }
+}
+
+service auth {
+  unix_listener auth-userdb {
+    #mode = 0666
+    #user =
+    #group =
+  }
+
+  # 给 Postfix 用的 SASL 认证套接字
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0666
+    user = postfix
+    group = postfix
+  }
+
+  # ……其余保持默认
+}
+</code></pre>
+<h3>5. <code>/etc/dovecot/conf.d/10-ssl.conf</code></h3>
+<pre><code class="language-ini">ssl = yes
+# 路径前的 &lt; 表示读取文件内容
+ssl_cert = &lt;/etc/ssl/private/mail.crt
+ssl_key = &lt;/etc/ssl/private/mail.key
+</code></pre>
+<h2>四、添加本地邮件用户</h2>
+<p>邮件用户就是系统用户，禁止其登录 shell：</p>
+<pre><code class="language-bash">useradd -m user1 -s /sbin/nologin
+passwd user1
+</code></pre>
+<blockquote>
+<p>加上 <code>-m</code> 才会创建家目录，否则邮件没有地方存放 <code>Maildir/</code>。</p>
+</blockquote>
+<h2>五、重启并检查服务</h2>
+<pre><code class="language-bash">systemctl restart postfix dovecot
+ss -lntp | grep -E &#39;:(25|465|587|993|995)\b&#39;
+</code></pre>
+<h2>六、配置 Roundcube</h2>
+<h3>1. 配置文件 <code>/etc/roundcube/config.inc.php</code></h3>
+<p>只列出需要修改的部分，其余保持默认：</p>
+<pre><code class="language-php">&lt;?php
+$config = [];
+
+// 数据库连接（建议用 dpkg-reconfigure roundcube-core 生成）
+$config[&#39;db_dsnw&#39;] = &#39;mysql://roundcube:&lt;数据库密码&gt;@localhost/roundcube&#39;;
+
+// IMAP：通过 993 端口 SSL 收信
+$config[&#39;imap_host&#39;] = [&quot;ssl://mail.cmcc.cn:993&quot;];
+
+// SMTP：通过 465 端口 SSL 发信，%u / %p 表示使用当前登录用户的账号密码
+$config[&#39;smtp_host&#39;] = &#39;ssl://mail.cmcc.cn:465&#39;;
+$config[&#39;smtp_user&#39;] = &#39;%u&#39;;
+$config[&#39;smtp_pass&#39;] = &#39;%p&#39;;
+
+$config[&#39;support_url&#39;] = &#39;&#39;;
+$config[&#39;product_name&#39;] = &#39;Roundcube&#39;;
+
+// 连接 IMAP 时校验服务器证书
+$config[&#39;imap_conn_options&#39;] = [
+    &#39;ssl&#39; =&gt; [
+        &#39;verify_peer&#39;  =&gt; true,
+        &#39;verify_depth&#39; =&gt; 3,
+        &#39;cafile&#39;       =&gt; &#39;/etc/ssl/myca/ca.cert&#39;,  // CA 证书
+    ],
+];
+
+// 连接 SMTP 时校验服务器证书
+$config[&#39;smtp_conn_options&#39;] = [
+    &#39;ssl&#39; =&gt; [
+        &#39;verify_peer&#39;  =&gt; true,
+        &#39;verify_depth&#39; =&gt; 3,
+        &#39;cafile&#39;       =&gt; &#39;/etc/ssl/myca/ca.cert&#39;,  // CA 证书
+    ],
+];
+
+// 加密会话中 IMAP 密码的密钥，必须正好 24 个字符，且不要用示例值
+$config[&#39;des_key&#39;] = &#39;&lt;24位随机字符串&gt;&#39;;
+
+$config[&#39;plugins&#39;] = [
+    // &#39;archive&#39;,
+    // &#39;zipdownload&#39;,
+];
+
+$config[&#39;skin&#39;] = &#39;elastic&#39;;
+$config[&#39;enable_spellcheck&#39;] = false;
+</code></pre>
+<p>生成 24 位随机密钥：</p>
+<pre><code class="language-bash">openssl rand -base64 18
+</code></pre>
+<h3>2. 导入数据库</h3>
+<pre><code class="language-bash">cd /usr/share/roundcube/SQL
+mysql roundcube &lt; mysql.initial.sql
+</code></pre>
+<h2>注意事项</h2>
+<ul>
+<li><code>mynetworks = 0.0.0.0/0</code> 会把所有 IP 当作可信网络，等于<strong>开放中继</strong>，只适合实验环境。生产环境请改为 <code>127.0.0.0/8 [::1]/128</code>，外部用户通过 587/465 认证发信。</li>
+<li>Postfix 证书 <code>mail.crt</code> 必须由 <code>/etc/ssl/myca/ca.cert</code> 签发，且证书中的域名要与 <code>mail.cmcc.cn</code> 一致，否则 Roundcube 开启 <code>verify_peer</code> 后会连接失败。</li>
+<li>证书私钥建议权限为 <code>600</code>：<code>chmod 600 /etc/ssl/private/mail.key</code>。</li>
+</ul>
+
+<a class="btn" href="/#/p/1w1ncrp1t6">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

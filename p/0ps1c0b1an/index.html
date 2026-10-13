@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux 学习笔记（03）：RPM 软件包管理 - 林的笔记</title>
+<meta name="description" content="Linux 学习笔记 · RPM 软件包管理，内容整理自截图笔记。">
+<meta name="keywords" content="Linux,RPM">
+<link rel="canonical" href="https://0x-z.cn/p/0ps1c0b1an/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 学习笔记（03）：RPM 软件包管理">
+<meta property="og:description" content="Linux 学习笔记 · RPM 软件包管理，内容整理自截图笔记。">
+<meta property="og:url" content="https://0x-z.cn/p/0ps1c0b1an/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（03）：RPM 软件包管理","description":"Linux 学习笔记 · RPM 软件包管理，内容整理自截图笔记。","url":"https://0x-z.cn/p/0ps1c0b1an/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,RPM"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/0ps1c0b1an">在博客中阅读</a></header>
+<article>
+<h1>Linux 学习笔记（03）：RPM 软件包管理</h1>
+<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span><span>#Linux</span><span>#RPM</span></div>
+<h2>RPM使用</h2>
+<blockquote>
+<p>参考：《鸟哥的 Linux 私房菜》第 803 页</p>
+</blockquote>
+<p>RPM 软件登录文件的建立：</p>
+<p>RPM (第二十三章) 是一种软件管理的机制。由于系统可能会常常变更软件，包括软件的新安装、非经常性更新等，都会造成软件文件名的差异。为了方便未来追踪，系统也帮我们将文件名作个排序的记录呢！有时候系统也会透过排程来帮忙 RPM 数据库的重新建置喔！</p>
+<h3>RPM 安装 (install)</h3>
+<p>因为安装软件是 root 的工作，因此妳得要是 root 的身份才能够操作 rpm 这指令的。用 rpm 来安装很简单啦！假设我要安装一个档名为 rp-pppoe-3.5-32.1.i386.rpm 的档案，那么我可以这样：</p>
+<pre><code class="language-bash">[root@www ~]# rpm -i rp-pppoe-3.5-32.1.i386.rpm
+</code></pre>
+<p>不过，这样的参数其实无法显示安装的进度，所以，通常我们会这样下达安装指令：</p>
+<pre><code class="language-bash">[root@www ~]# rpm -ivh package_name
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-i</code>：install 的意思</li>
+<li><code>-v</code>：察看更细部的安装信息画面</li>
+<li><code>-h</code>：以安装信息列显示安装进度</li>
+</ul>
+<p><strong>范例一：安装 rp-pppoe-3.5-32.1.i386.rpm</strong></p>
+<pre><code class="language-bash">[root@www ~]# rpm -ivh rp-pppoe-3.5-32.1.i386.rpm
+Preparing...    ########################################### [100%]
+   1:rp-pppoe   ###########################################
+[100%]
+</code></pre>
+<p><strong>范例二、一口气安装两个以上的软件时：</strong></p>
+<pre><code class="language-bash">[root@www ~]# rpm -ivh a.i386.rpm b.i386.rpm *.rpm
+# 后面直接接上许多的软件档案！
+</code></pre>
+<p><strong>范例三、直接由网络上面的某个档案安装，以网址来安装：</strong></p>
+<pre><code class="language-bash">[root@www ~]# rpm -ivh http://website.name/path/pkgname.rpm
+</code></pre>
+
+<a class="btn" href="/#/p/0ps1c0b1an">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分解实验09：策略路由 - 林的笔记</title>
+<meta name="description" content="对比路由策略与策略路由，并在出口路由器上用 ACL + 流分类/流行为/流策略实现教学楼走电信、宿舍楼走联通，单出口故障时自动切换。">
+<meta name="keywords" content="软考,网络工程师,华为,策略路由,traffic-policy,NAT">
+<link rel="canonical" href="https://0x-z.cn/p/1ac42x3000/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分解实验09：策略路由">
+<meta property="og:description" content="对比路由策略与策略路由，并在出口路由器上用 ACL + 流分类/流行为/流策略实现教学楼走电信、宿舍楼走联通，单出口故障时自动切换。">
+<meta property="og:url" content="https://0x-z.cn/p/1ac42x3000/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"分解实验09：策略路由","description":"对比路由策略与策略路由，并在出口路由器上用 ACL + 流分类/流行为/流策略实现教学楼走电信、宿舍楼走联通，单出口故障时自动切换。","url":"https://0x-z.cn/p/1ac42x3000/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-11","dateModified":"2026-10-11","keywords":"软考,网络工程师,华为,策略路由,traffic-policy,NAT"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/1ac42x3000">在博客中阅读</a></header>
+<article>
+<h1>分解实验09：策略路由</h1>
+<div class="meta"><span>2026-10-11</span><span>Network / Huawei</span><span>#软考</span><span>#网络工程师</span><span>#华为</span><span>#策略路由</span><span>#traffic-policy</span><span>#NAT</span></div>
+<p>本实验先说明策略路由与路由策略的区别，然后在双出口的出口路由器上配置 NAT、两条默认路由和基于 traffic-policy 的策略路由：教学楼 PC1 走电信出口、宿舍楼 PC2 走联通出口，任一出口故障时流量自动切换到另一个出口。</p>
+<!-- more -->
+
+<h2>1、策略路由原理</h2>
+<p>策略路由：通过定义策略和应用，实现数据流量按照规划的路径走，比如张三走联通出口，李四走电信出口（策略路由的优先级比普通路由表优先级更高）。路由策略是通过 ACL 等方式控制路由发布，让对方学到适当路由条目，比如有 20 条路由条目，只想让某个路由器学到 10 条，可以通过路由策略进行过滤。路由策略和策略路由是两种不同的机制，主要区别如下：</p>
+<table>
+<thead>
+<tr>
+<th>路由策略</th>
+<th>策略路由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>基于策略控制路由信息的引入、发布、接收</td>
+<td>基于策略控制报文的转发，即可以不按照路由表转发报文，而是通过按照策略需要转发，转发失败后再通过查找路由表转发</td>
+</tr>
+<tr>
+<td>基于控制平面，为路由协议和路由表服务</td>
+<td>基于转发平面，为转发策略服务</td>
+</tr>
+<tr>
+<td>与路由协议结合完成策略</td>
+<td>需要手工逐跳配置，以保证报文按策略转发</td>
+</tr>
+<tr>
+<td>应用命令 route-policy</td>
+<td>应用命令 traffic-policy</td>
+</tr>
+</tbody></table>
+<h2>2、网络拓扑</h2>
+<table>
+<thead>
+<tr>
+<th>设备</th>
+<th>接口</th>
+<th>IP/掩码</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PC1</td>
+<td>—</td>
+<td>192.168.10.1/24</td>
+<td>教学楼终端，VLAN10</td>
+</tr>
+<tr>
+<td>PC2</td>
+<td>—</td>
+<td>192.168.20.1/24</td>
+<td>宿舍楼终端，VLAN20</td>
+</tr>
+<tr>
+<td>Router（出口路由器）</td>
+<td>GE0/0/0</td>
+<td>192.168.10.254/24</td>
+<td>教学楼网关</td>
+</tr>
+<tr>
+<td>Router</td>
+<td>GE0/0/1</td>
+<td>192.168.20.254/24</td>
+<td>宿舍楼网关</td>
+</tr>
+<tr>
+<td>Router</td>
+<td>GE0/0/2</td>
+<td>12.1.1.1/30</td>
+<td>电信出口</td>
+</tr>
+<tr>
+<td>Router</td>
+<td>GE4/0/0</td>
+<td>13.1.1.1/30</td>
+<td>联通出口</td>
+</tr>
+<tr>
+<td>dianxin（电信路由器）</td>
+<td>GE0/0/0</td>
+<td>12.1.1.2/30</td>
+<td>连 Router，运行 OSPF 区域 0</td>
+</tr>
+<tr>
+<td>dianxin</td>
+<td>GE0/0/1</td>
+<td>100.1.1.1/30</td>
+<td>连 Internet（100.1.1.0/30）</td>
+</tr>
+<tr>
+<td>dianxin</td>
+<td>LoopBack0</td>
+<td>1.1.1.1</td>
+<td>电信服务器</td>
+</tr>
+<tr>
+<td>liantong（联通路由器）</td>
+<td>GE0/0/0</td>
+<td>13.1.1.2/30</td>
+<td>连 Router，运行 OSPF 区域 0</td>
+</tr>
+<tr>
+<td>liantong</td>
+<td>GE0/0/1</td>
+<td>100.1.1.2/30</td>
+<td>连 Internet（100.1.1.0/30）</td>
+</tr>
+<tr>
+<td>liantong</td>
+<td>LoopBack0</td>
+<td>2.2.2.2</td>
+<td>联通服务器</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>提示</strong>：原文拓扑图中 PC2 标注为「教学楼VLAN20」，而正文需求和 ACL 注释都把 192.168.20.0/24 称为宿舍楼，这里按正文写作宿舍楼。</p>
+</blockquote>
+<pre><code class="language-text"> PC1 教学楼 VLAN10 192.168.10.1/24 ---- GE0/0/0 (192.168.10.254)
+                                              Router GE0/0/2 12.1.1.1/30 ---- GE0/0/0 12.1.1.2  dianxin (Lo0 1.1.1.1) GE0/0/1 100.1.1.1 ----+
+ PC2 宿舍楼 VLAN20 192.168.20.1/24 ---- GE0/0/1 (192.168.20.254)                                                                             Internet 100.1.1.0/30
+                                              Router GE4/0/0 13.1.1.1/30 ---- GE0/0/0 13.1.1.2  liantong (Lo0 2.2.2.2) GE0/0/1 100.1.1.2 ---+
+                                                                         （dianxin 与 liantong 运行 OSPF 区域 0）
+</code></pre>
+<h2>3、实验需求</h2>
+<p>教学楼终端 PC1 通过电信出口访问互联网，宿舍楼终端 PC2 通过联通出口访问互联网，任何一个出口出现故障，都可以自动切换到另一个出口。</p>
+<h2>4、配置步骤规划</h2>
+<ol>
+<li>配置 IP 地址</li>
+<li>路由互通与 NAT</li>
+<li>配置策略路由</li>
+<li>测试与验证</li>
+</ol>
+<h2>5、配置过程与命令</h2>
+<h3>Step 1：配置 IP 地址（略）</h3>
+<h3>Step 2：配置路由互通</h3>
+<p>为了简化配置，直接通过 OSPF 打通电信和联通间的路由，即 dianxin 和 liantong 两台路由器运行 OSPF，都在区域 0，宣告所有直连网段。</p>
+<pre><code class="language-text">[dianxin] ospf 1
+[dianxin-ospf-1] area 0
+[dianxin-ospf-1-area-0.0.0.0] network 0.0.0.0 0.0.0.0 //宣告所有网段的简便方法，当然也可以手动把直连的三个宣告进OSPF
+</code></pre>
+<pre><code class="language-text">[liantong] ospf 1
+[liantong-ospf-1] area 0
+[liantong-ospf-1-area-0.0.0.0] network 0.0.0.0 0.0.0.0
+</code></pre>
+<blockquote>
+<p>注意：原文 liantong 的命令写作「area 0ii」，多了「ii」，应为 area 0。</p>
+</blockquote>
+<p>电信路由器上已经学到联通服务器路由（2.2.2.2），同样在联通路由器上也可以看到到电信服务器的路由（略），即完成路由互通。</p>
+<pre><code class="language-text">[dianxin] display ip routing-table
+Route Flags: R - relay, D - download to fib
+------------------------------------------------------------------------------
+Routing Tables: Public
+         Destinations : 13       Routes : 13
+
+Destination/Mask    Proto   Pre  Cost      Flags NextHop         Interface
+
+        1.1.1.1/32  Direct  0    0           D   127.0.0.1       LoopBack0
+        2.2.2.2/32  OSPF    10   1           D   100.1.1.2       GigabitEthernet0/0/1
+       12.1.1.0/30  Direct  0    0           D   12.1.1.2        GigabitEthernet0/0/0
+       12.1.1.2/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/0
+       12.1.1.3/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/0
+       13.1.1.0/30  OSPF    10   2           D   100.1.1.2       GigabitEthernet0/0/1
+      100.1.1.0/30  Direct  0    0           D   100.1.1.1       GigabitEthernet0/0/1
+      100.1.1.1/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/1
+      100.1.1.3/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/1
+      127.0.0.0/8   Direct  0    0           D   127.0.0.1       InLoopBack0
+      127.0.0.1/32  Direct  0    0           D   127.0.0.1       InLoopBack0
+127.255.255.255/32  Direct  0    0           D   127.0.0.1       InLoopBack0
+</code></pre>
+<p>出口路由器 router 配置 NAT 与默认路由：</p>
+<pre><code class="language-text">[router] acl number 3000
+[router-acl-adv-3000] rule 10 permit ip source 192.168.10.0 0.0.0.255 //匹配教学楼流量
+[router-acl-adv-3000] rule 20 permit ip source 192.168.20.0 0.0.0.255 //匹配宿舍楼流量
+[router-acl-adv-3000] interface GigabitEthernet0/0/2
+[router-GigabitEthernet0/0/2] nat outbound 3000 //接口下应用ACL转换
+[router-GigabitEthernet0/0/2] interface GigabitEthernet4/0/0
+[router-GigabitEthernet4/0/0] nat outbound 3000
+[router] ip route-static 0.0.0.0 0 12.1.1.2 //配置指向电信的默认路由
+[router] ip route-static 0.0.0.0 0 13.1.1.2 //配置指向联通的默认路由
+</code></pre>
+<h3>Step 3：策略路由配置</h3>
+<p>第一步：配置 ACL，匹配流量</p>
+<pre><code class="language-text">[router] acl number 2010
+[router-acl-basic-2010] rule 10 permit source 192.168.10.0 0.0.0.255 //匹配源地址为192.168.10.0/24网段的流量
+[router-acl-basic-2010] acl number 2020
+[router-acl-basic-2020] rule 10 permit source 192.168.20.0 0.0.0.255 //匹配源地址为192.168.20.0/24网段的流量
+</code></pre>
+<p>第二步：配置流分类，关联 ACL</p>
+<pre><code class="language-text">[router-acl-basic-2020] traffic classifier jiaoxue //配置流分类，名称为jiaoxue
+[router-classifier-jiaoxue] if-match acl 2010 //如果匹配ACL2010
+[router-classifier-jiaoxue] traffic classifier sushe //配置流分类，名称为sushe
+[router-classifier-sushe] if-match acl 2020 //如果匹配ACL2020
+</code></pre>
+<p>第三步：配置流行为</p>
+<pre><code class="language-text">[router-classifier-sushe] traffic behavior re-dianxin //配置流行为re-dianxin
+[router-behavior-re-dianxin] redirect ip-nexthop 12.1.1.2 //下一跳设置为12.1.1.2
+[router-behavior-re-dianxin] traffic behavior re-liantong //配置流行为re-liantong
+[router-behavior-re-liantong] redirect ip-nexthop 13.1.1.2 //下一跳设置为13.1.1.2
+</code></pre>
+<p>第四步：配置流策略 P 和 Q</p>
+<pre><code class="language-text">[router-behavior-re-liantong] traffic policy P //配置流策略P
+[router-trafficpolicy-P] classifier jiaoxue behavior re-dianxin //把教学楼的流量扔给电信出口
+[router-trafficpolicy-P] traffic policy Q //配置流策略Q
+[router-trafficpolicy-Q] classifier sushe behavior re-liantong //把宿舍楼的流量扔给联通出口
+</code></pre>
+<p>第五步：在接口下应用流策略</p>
+<pre><code class="language-text">[router-trafficpolicy-Q] interface GigabitEthernet0/0/0
+[router-GigabitEthernet0/0/0] traffic-policy P inbound //在流量入方向应用策略P
+[router-GigabitEthernet0/0/0] interface GigabitEthernet0/0/1
+[router-GigabitEthernet0/0/1] traffic-policy Q inbound //在流量入方向应用策略Q
+</code></pre>
+<h3>Step 4：测试与验证</h3>
+<p>配置完成后进入测试环节，PC1 通过电信出口访问互联网和联通服务器。</p>
+<pre><code class="language-text">PC1&gt; tracert 100.1.1.2
+traceroute to 100.1.1.2, 8 hops max
+(ICMP), press ctrl+C to stop
+1 * * *
+2 12.1.1.2 31 ms &lt;1 ms 16 ms
+3 100.1.1.2 15 ms 32 ms 15 ms
+
+PC1&gt; tracert 2.2.2.2
+traceroute to 2.2.2.2, 8 hops max
+(ICMP), press ctrl+c to stop
+1 * * *
+2 12.1.1.2 15 ms &lt;1 ms 16 ms
+3 2.2.2.2 31 ms 16 ms 16 ms
+</code></pre>
+<p>PC2 通过联通出口访问互联网和电信服务器。</p>
+<pre><code class="language-text">PC2&gt; tracert 100.1.1.1
+traceroute to 100.1.1.1, 8 hops max
+(ICMP), press Ctrl+C to stop
+1 * * *
+2 13.1.1.2 15 ms 16 ms 31 ms
+3 100.1.1.1 16 ms 15 ms 32 ms
+
+PC2&gt; tracert 1.1.1.1
+traceroute to 1.1.1.1, 8 hops max
+(ICMP) press ctrl+C to stop
+1 * * *
+2 13.1.1.2 16 ms 15 ms 32 ms
+3 1.1.1.1 15 ms 16 ms 31 ms
+</code></pre>
+<p>通过如上策略路由实现了教学楼走电信出口，宿舍楼走联通出口。</p>
+<p>把出口路由器与电信互联接口关闭，再测试教学楼流量路径。</p>
+<pre><code class="language-text">[router] interface GigabitEthernet0/0/2
+[router-GigabitEthernet0/0/2] shutdown
+</code></pre>
+<p>教学楼用户 PC1 流量自动切换到联通出口（13.1.1.2），因为策略路由的下一跳只要可达，优先级就比默认路由高，如果策略路由的下一跳不可达，就转到路由表进行查找及转发，会查到出口路由器上配置的默认路由，指向联通出口。（虽然配置了指向电信和联通两条默认路由，但出口把电信接口关闭，指向电信的默认路由失效）</p>
+<pre><code class="language-text">PC1&gt; tracert 1.1.1.1
+traceroute to 1.1.1.1, 8 hops max
+(ICMP), press ctrl+C to stop
+1 * * *
+2 13.1.1.2 31 ms 16 ms 15 ms
+3 1.1.1.1 32 ms 15 ms 32 ms
+
+PC1&gt; tracert 100.1.1.1
+traceroute to 100.1.1.1, 8 hops max
+(ICMP), press ctrl+c to stop
+1 * * *
+2 13.1.1.2 16 ms 31 ms 16 ms
+3 100.1.1.1 31 ms 15 ms 32 ms
+</code></pre>
+<blockquote>
+<p>注意：原文这几段 tracert 输出有排版瑕疵（「tra ce工oute」、「8 hops ma x」断开、最后一段第 2 跳漏写序号「2」），这里已按正常输出格式整理，跳数和时延未改。</p>
+</blockquote>
+<p>完成流量自动切换，实验成功！</p>
+
+<a class="btn" href="/#/p/1ac42x3000">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

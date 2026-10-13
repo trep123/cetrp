@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux 学习笔记（09）：正则表达式与文本处理 - 林的笔记</title>
+<meta name="description" content="Linux 学习笔记 · 正则表达式与文本处理，内容整理自截图笔记。">
+<meta name="keywords" content="Linux,正则表达式,sed,awk">
+<link rel="canonical" href="https://0x-z.cn/p/1sjzaro1sm/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 学习笔记（09）：正则表达式与文本处理">
+<meta property="og:description" content="Linux 学习笔记 · 正则表达式与文本处理，内容整理自截图笔记。">
+<meta property="og:url" content="https://0x-z.cn/p/1sjzaro1sm/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（09）：正则表达式与文本处理","description":"Linux 学习笔记 · 正则表达式与文本处理，内容整理自截图笔记。","url":"https://0x-z.cn/p/1sjzaro1sm/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,正则表达式,sed,awk"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/1sjzaro1sm">在博客中阅读</a></header>
+<article>
+<h1>Linux 学习笔记（09）：正则表达式与文本处理</h1>
+<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span><span>#Linux</span><span>#正则表达式</span><span>#sed</span><span>#awk</span></div>
+<h2>正则表达式概念</h2>
+<p>简单的说，正规表示法就是处理字符串的方法，他是以行为单位来进行字符串的处理行为，正规表示法</p>
+<p>透过一些特殊符号的辅助，可以让使用者轻易的达到『搜寻/删除/取代』某特定字符串的处理程序！</p>
+<p>那么该工具程序就可以用来作为正规表示法的字符串处理之用。例如 vi, grep, awk ,sed 等等工具，因</p>
+<p><strong>Tips:</strong></p>
+<p>有一点要向大家报告的，那就是：『正规表示法与通配符是完全不一样的东西！』这很重要喔！因为『通配符 (wildcard) 代表的是 bash 操作接口的一个功能』，但正规表示法则是一种字符串处理的表示方式！这两者要分的很清楚才行喔！所以，学习本章，请将前一章 bash 的通配符意义先忘掉吧！</p>
+<table>
+<thead>
+<tr>
+<th>特殊符号</th>
+<th>代表意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>[:alnum:]</code></td>
+<td>代表英文大小写字符及数字，亦即 0-9, A-Z, a-z</td>
+</tr>
+<tr>
+<td><code>[:alpha:]</code></td>
+<td>代表任何英文大小写字符，亦即 A-Z, a-z</td>
+</tr>
+<tr>
+<td><code>[:blank:]</code></td>
+<td>代表空格键与 [Tab] 按键两者</td>
+</tr>
+<tr>
+<td><code>[:cntrl:]</code></td>
+<td>代表键盘上面的控制按键，亦即包括 CR, LF, Tab, Del.. 等等</td>
+</tr>
+<tr>
+<td><code>[:digit:]</code></td>
+<td>代表数字而已，亦即 0-9</td>
+</tr>
+<tr>
+<td><code>[:graph:]</code></td>
+<td>除了空格符 (空格键与 [Tab] 按键) 外的其他所有按键</td>
+</tr>
+<tr>
+<td><code>[:lower:]</code></td>
+<td>代表小写字符，亦即 a-z</td>
+</tr>
+<tr>
+<td><code>[:print:]</code></td>
+<td>代表任何可以被打印出来的字符</td>
+</tr>
+<tr>
+<td><code>[:punct:]</code></td>
+<td>代表标点符号 (punctuation symbol)，亦即：&quot; &#39; ? ! ; : # $...</td>
+</tr>
+<tr>
+<td><code>[:upper:]</code></td>
+<td>代表大写字符，亦即 A-Z</td>
+</tr>
+<tr>
+<td><code>[:space:]</code></td>
+<td>任何会产生空白的字符，包括空格键, [Tab], CR 等等</td>
+</tr>
+<tr>
+<td><code>[:xdigit:]</code></td>
+<td>代表 16 进位的数字类型，因此包括： 0-9, A-F, a-f 的数字与字符</td>
+</tr>
+</tbody></table>
+<p>尤其上表中的[:alnum:], [:alpha:], [:upper:], [:lower:], [:digit:] 这几个一定要知道代表什么意思，因为他要比 a-z 或 A-Z 的用途要确定的很！好了，底下就让我们开始来玩玩进阶版的 grep 吧！</p>
+<table>
+<thead>
+<tr>
+<th>RE 字符</th>
+<th>意义与范例</th>
+</tr>
+</thead>
+</table>
+<p><strong><code>^word</code></strong></p>
+<p>意义：待搜寻的字符串(word)在行首！</p>
+<p>范例：搜寻行首为 # 开始的那一行，并列出行号</p>
+<pre><code class="language-bash">grep -n &#39;^#&#39; regular_express.txt
+</code></pre>
+<p><strong><code>word$</code></strong></p>
+<p>意义：待搜寻的字符串(word)在行尾！</p>
+<p>范例：将行尾为 ! 的那一行打印出来，并列出行号</p>
+<pre><code class="language-bash">grep -n &#39;!$&#39; regular_express.txt
+</code></pre>
+<p><strong><code>.</code></strong></p>
+<p>意义：代表『一定有一个任意字符』的字符！</p>
+<p>范例：搜寻的字符串可以是 (eve) (eae) (eee) (e e)， 但不能仅有 (ee) ！亦即 e 与 e 中间『一定』仅有一个字符，而空格符也是字符！</p>
+<pre><code class="language-bash">grep -n &#39;e.e&#39; regular_express.txt
+</code></pre>
+<p><strong><code>\</code></strong></p>
+<p>意义：跳脱字符，将特殊符号的特殊意义去除！</p>
+<p>范例：搜寻含有单引号 &#39; 的那一行！</p>
+<pre><code class="language-bash">grep -n \&#39; regular_express.txt
+</code></pre>
+<p><strong><code>*</code></strong></p>
+<p>意义：重复零个到无穷多个的前一个 RE 字符</p>
+<p>范例：找出含有 (es) (ess) (esss) 等等的字符串，注意，因为 * 可以是 0 个，所以 es 也是符合带搜寻字符串。另外，因为 * 为重复『前一个 RE 字符』的符号， 因此，在 * 之前必须要紧接着一个 RE 字符喔！例如任意字符则为 『.*』 ！</p>
+<pre><code class="language-bash">grep -n &#39;ess*&#39; regular_express.txt
+</code></pre>
+<p><strong><code>[list]</code></strong></p>
+<p>意义：字符集合的 RE 字符，里面列出想要撷取的字符！</p>
+<p>范例：搜寻含有 (gl) 或 (gd) 的那一行，需要特别留意的是，在 [] 当中『谨代表一个待搜寻的字符』， 例如『 a[afl]y 』代表搜寻的字符串可以是 aay, afy, aly 即 [afl] 代表 a 或 f 或 l 的意思！</p>
+<pre><code class="language-bash">grep -n &#39;g[ld]&#39; regular_express.txt
+</code></pre>
+<p><strong><code>[n1-n2]</code></strong></p>
+<p>意义：字符集合的 RE 字符，里面列出想要撷取的字符范围！</p>
+<p>范例：搜寻含有任意数字的那一行！需特别留意，在字符集合 [] 中的减号 - 是有特殊意义的，他代表两个字符之间的所有连续字符！但这个连续与否与 ASCII 编码有关，因此，你的编码需要设定正确(在 bash 当中，需要确定 LANG 与 LANGUAGE 的变量是否正确！) 例如所有大写字符则为 [A-Z]</p>
+<pre><code class="language-bash">grep -n &#39;[0-9]&#39; regular_express.txt
+</code></pre>
+<p><strong><code>[^list]</code></strong></p>
+<p>意义：字符集合的 RE 字符，里面列出不要的字符串或范围！</p>
+<p>范例：搜寻的字符串可以是 (oog) (ood) 但不能是 (oot) ，那个 ^ 在 [] 内时，代表的意义是『反向选择』的意思。 例如，我不要大写字符，则为 [^A-Z]。但是，需要特别注意的是，如果以 grep -n [^A-Z] regular_express.txt 来搜寻，却发现该档案内的所有行都被列出，为什么？因为这个 [^A-Z] 是『非大写字符』的意思， 因为每一行均有非大写字符，例如第一行的 &quot;Open Source&quot; 就有 p,e,n,o.... 等等的小写字</p>
+<pre><code class="language-bash">grep -n &#39;oo[^t]&#39; regular_express.txt
+</code></pre>
+<p><strong><code>\{n,m\}</code></strong></p>
+<p>意义：连续 n 到 m 个的『前一个 RE 字符』</p>
+<p>意义：若为 {n} 则是连续 n 个的前一个 RE 字符，</p>
+<p>意义：若是 {n,} 则是连续 n 个以上的前一个 RE 字符！ 范例：在 g 与 g 之间有 2 个到 3 个的 o 存在的字符串，亦即 (goog)(gooog)</p>
+<pre><code class="language-bash">grep -n &#39;go\{2,3\}g&#39; regular_express.txt
+</code></pre>
+<p>再次强调：『正规表示法的特殊字符』与一般在指令列输入指令的『通配符』并不相同， 例如，在通配符当中的 * 代表的是『 0 ~ 无限多个字符』的意思，但是在正规表示法当中， * 则是『重复 0 到无穷多个的前一个 RE 字符』的意思～使用的意义并不相同，不要搞混了！</p>
+<p>举例来说，不支持正规表示法的 ls 这个工具中，若我们使用 『ls -l * 』 代表的是任意档名的档案，而『ls -l a* 』代表的是以 a 为开头的任何档名的档案， 但在正规表示法中，我们要找到含有以 a 为开头的档案，则必须要这样：(需搭配支持正规表示法的工具)</p>
+<pre><code class="language-bash">ls | grep -n &#39;^a.*&#39;
+</code></pre>
+<p><strong>例题：</strong></p>
+<p>以 ls -l 配合 grep 找出 /etc/ 底下文件类型为链接文件属性的文件名</p>
+<p>答：</p>
+<p>由于 ls -l 列出连结档时标头会是『 lrwxrwxrwx 』，因此使用如下的指令即可找出结果：</p>
+<pre><code class="language-bash">ls -l /etc | grep &#39;^l&#39;
+</code></pre>
+<p>若仅想要列出几个档案，再以『 |wc -l 』 来累加处理即可。</p>
+<h2>sed命令使用</h2>
+<p>我们先来谈一谈 sed 好了， sed 本身也是一个管线命令，可以分析 standard input 的啦！而且 sed 还可以将数据进行取代、删除、新增、撷取特定行等等的功能呢！很不错吧～ 我们先来了解一下 sed 的用法，再来聊他的用途好了！</p>
+<pre><code class="language-bash">[root@www ~]# sed [-nefr] [动作]
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-n</code>：使用安静(silent)模式。在一般 sed 的用法中，所有来自 STDIN 的数据一般都会被列出到屏幕上。但如果加上 -n 参数后，则只有经过 sed 特殊处理的那一行(或者动作)才会被列出来。</li>
+<li><code>-e</code>：直接在指令列模式上进行 sed 的动作编辑；</li>
+<li><code>-f</code>：直接将 sed 的动作写在一个档案内， -f filename 则可以执行 filename 内的 sed 动作；</li>
+<li><code>-r</code>：sed 的动作支持的是延伸型正规表示法的语法。(预设是基础正规表示法语法)</li>
+<li><code>-i</code>：直接修改读取的档案内容，而不是由屏幕输出。</li>
+</ul>
+<p>动作说明： <code>[n1[,n2]]function</code></p>
+<p>n1, n2 ：不见得会存在，一般代表『选择进行动作的行数』，举例来说，如果我的动作是需要在 10 到 20 行之间进行的，则『 10,20[动作行为] 』</p>
+<p>function 有底下这些咚咚：</p>
+<ul>
+<li><code>a</code>：新增， a 的后面可以接字符串，而这些字符串会在新的一行出现(目前的下一行)～</li>
+<li><code>c</code>：取代， c 的后面可以接字符串，这些字符串可以取代 n1,n2 之间的行！</li>
+<li><code>d</code>：删除，因为是删除啊，所以 d 后面通常不接任何咚咚；</li>
+<li><code>i</code>：插入， i 的后面可以接字符串，而这些字符串会在新的一行出现(目前的上一行)；</li>
+<li><code>p</code>：打印，亦即将某个选择的数据印出。通常 p 会与参数 sed -n 一起运作～</li>
+<li><code>s</code>：取代，可以直接进行取代的工作哩！通常这个 s 的动作可以搭配正规表示法！例如 1,20s/old/new/g 就是啦！</li>
+</ul>
+<p><strong>范例一：将 /etc/passwd 的内容列出并且打印行号，同时，请将第 2~5 行删除！</strong></p>
+<pre><code class="language-bash">[root@www ~]# nl /etc/passwd | sed &#39;2,5d&#39;
+     1  root:x:0:0:root:/root:/bin/bash
+     6  sync:x:5:0:sync:/sbin:/bin/sync
+     7  shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+.....(后面省略).....
+</code></pre>
+<p>看到了吧？sed 的动作为 &#39;2,5d&#39; ，那个 d 就是删除！因为 2-5 行给他删除了，所以显示的数据就没有 2-5 行啰～ 另外，注意一下，原本应该是要下达 sed -e 才对，没有 -e 也行啦！同时也要注意的是， sed 后面接的动作，请务必以 &#39;&#39; 两个单引号括住喔！</p>
+<p>如果题型变化一下，举例来说，如果只要删除第 2 行，可以使用『 nl /etc/passwd | sed &#39;2d&#39; 』来达成， 至于若是要删除第 3 到最后一行，则是『 nl /etc/passwd | sed &#39;3,$d&#39; 』的啦，那个钱字号『 $ 』代表最后一行！</p>
+<p><strong>范例二：承上题，在第二行后(亦即是加在第三行)加上『drink tea?』字样！</strong></p>
+<pre><code class="language-bash">[root@www ~]# nl /etc/passwd | sed &#39;2a drink tea&#39;
+     1  root:x:0:0:root:/root:/bin/bash
+     2  bin:x:1:1:bin:/bin:/sbin/nologin
+drink tea
+     3  daemon:x:2:2:daemon:/sbin:/sbin/nologin
+.....(后面省略).....
+</code></pre>
+<p>嘿嘿！在 a 后面加上的字符串就已将出现在第二行后面啰！那如果是要在第二行前呢？『 nl /etc/passwd | sed &#39;2i drink tea&#39; 』就对啦！就是将『 a 』变成『 i 』即可。 增加一行很简单，那如果</p>
+<p><strong>范例三：在第二行后面加入两行字，例如『Drink tea or .....』与『drink beer?』</strong></p>
+<pre><code class="language-bash">[root@www ~]# nl /etc/passwd | sed &#39;2a Drink tea or ......\
+&gt; drink beer ?&#39;
+     1  root:x:0:0:root:/root:/bin/bash
+     2  bin:x:1:1:bin:/bin:/sbin/nologin
+Drink tea or ......
+drink beer ?
+     3  daemon:x:2:2:daemon:/sbin:/sbin/nologin
+.....(后面省略).....
+</code></pre>
+<ul>
+<li>以行为单位的取代与显示功能</li>
+</ul>
+<p>刚刚是介绍如何新增与删除，那么如果要整行取代呢？看看底下的范例吧：</p>
+<p><strong>范例四：我想将第 2-5 行的内容取代成为『No 2-5 number』呢？</strong></p>
+<pre><code class="language-bash">[root@www ~]# nl /etc/passwd | sed &#39;2,5c No 2-5 number&#39;
+     1  root:x:0:0:root:/root:/bin/bash
+No 2-5 number
+     6  sync:x:5:0:sync:/sbin:/bin/sync
+.....(后面省略).....
+</code></pre>
+<p>透过这个方法我们就能够将数据整行取代了！非常容易吧！sed 还有更好用的东东！我们以前想要列出第 11~20 行， 得要透过『head -n 20 | tail -n 10』之类的方法来处理，很麻烦啦～ sed 则可以简单的直接取出你想要的那几行！是透过行号来捉的喔！看看底下的范例先：</p>
+<p><strong>范例五：仅列出 /etc/passwd 档案内的第 5-7 行</strong></p>
+<pre><code class="language-bash">[root@www ~]# nl /etc/passwd | sed -n &#39;5,7p&#39;
+     5  lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+     6  sync:x:5:0:sync:/sbin:/bin/sync
+     7  shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+</code></pre>
+<p>上述的指令中有个重要的选项『 -n 』，按照说明文件，这个 -n 代表的是『安静模式』！ 那么为什么要使用安静模式呢？你可以自行下达 sed &#39;5,7p&#39; 就知道了 (5-7 行会重复输出)！ 有没有加上 -n 的参数</p>
+<p><strong>步骤一：先观察原始讯息，利用 /sbin/ifconfig 查询 IP 为何？</strong></p>
+<pre><code class="language-bash">[root@www ~]# /sbin/ifconfig eth0
+eth0      Link encap:Ethernet  HWaddr 00:90:CC:A6:34:84
+          inet addr:192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0
+          inet6 addr: fe80::290:ccff:fea6:3484/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+.....(以下省略).....
+# 因为我们还没有讲到 IP ，这里你先有个概念即可啊！我们的重点在第二行，
+# 也就是 192.168.1.100 那一行而已！先利用关键词捉出那一行！
+</code></pre>
+<p><strong>步骤二：利用关键词配合 grep 撷取出关键的一行数据</strong></p>
+<pre><code class="language-bash">[root@www ~]# /sbin/ifconfig eth0 | grep &#39;inet addr&#39;
+          inet addr:192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0
+# 当场仅剩下一行！接下来，我们要将开始到 addr: 通通删除，就是像底下这样：
+# inet addr:192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0
+# 上面的删除关键在于『 ^.*inet addr: 』啦！正规表示法出现！ ^_^
+</code></pre>
+<p><strong>步骤三：将 IP 前面的部分予以删除</strong></p>
+<pre><code class="language-bash">[root@www ~]# /sbin/ifconfig eth0 | grep &#39;inet addr&#39; | \
+&gt;  sed &#39;s/^.*addr://g&#39;
+192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0
+# 仔细与上个步骤比较一下，前面的部分不见了！接下来则是删除后续的部分，亦即：
+# 192.168.1.100  Bcast:192.168.1.255  Mask:255.255.255.0
+# 此时所需的正规表示法为：『 Bcast.*$ 』就是啦！
+</code></pre>
+<p><strong>步骤四：将 IP 后面的部分予以删除</strong></p>
+<pre><code class="language-bash">[root@www ~]# /sbin/ifconfig eth0 | grep &#39;inet addr&#39; | \
+&gt;  sed &#39;s/^.*addr://g&#39; | sed &#39;s/Bcast.*$//g&#39;
+192.168.1.100
+</code></pre>
+<p><strong>步骤一：先使用 grep 将关键词 MAN 所在行取出来</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/man.config | grep &#39;MAN&#39;
+# when MANPATH contains an empty substring), to find out where the cat
+# MANBIN                pathname
+# MANPATH               manpath_element [corresponding_catdir]
+# MANPATH_MAP           path_element    manpath_element
+# MANBIN                /usr/local/bin/man
+# Every automatically generated MANPATH includes these fields
+MANPATH /usr/man
+....(后面省略)....
+</code></pre>
+<p><strong>步骤二：删除掉批注之后的数据！</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/man.config | grep &#39;MAN&#39;| sed &#39;s/#.*$//g&#39;
+
+
+
+
+
+
+MANPATH /usr/man
+....(后面省略)....
+# 从上面可以看出来，原本批注的数据都变成空白行啦！所以，接下来要删除掉空白行
+
+[root@www ~]# cat /etc/man.config | grep &#39;MAN&#39;| sed &#39;s/#.*$//g&#39; | \
+&gt; sed &#39;/^$/d&#39;
+MANPATH /usr/man
+MANPATH /usr/share/man
+MANPATH /usr/local/man
+....(后面省略)....
+</code></pre>
+<ul>
+<li>直接修改档案内容(危险动作)</li>
+</ul>
+<p>你以为 sed 只有这样的能耐吗？那可不！ sed 甚至可以直接修改档案的内容呢！而不必使用管线命令或数据流重导向！ 不过，由于这个动作会直接修改到原始的档案，所以请你千万不要随便拿系统配置文件来测试喔！ 我们还是使用你下载的 regular_express.txt 档案来测试看看吧！</p>
+<p><strong>范例六：利用 sed 将 regular_express.txt 内每一行结尾若为 . 则换成 !</strong></p>
+<pre><code class="language-bash">[root@www ~]# sed -i &#39;s/\.$/\!/g&#39; regular_express.txt
+# 上头的 -i 选项可以让你的 sed 直接去修改后面接的档案内容而不是由屏幕输出喔！
+# 这个范例是用在取代！请您自行 cat 该档案去查阅结果啰！
+</code></pre>
+<p><strong>范例七：利用 sed 直接在 regular_express.txt 最后一行加入『# This is a test』</strong></p>
+<pre><code class="language-bash">[root@www ~]# sed -i &#39;$a # This is a test&#39; regular_express.txt
+# 由于 $ 代表的是最后一行，而 a 的动作是新增，因此该档案最后新增啰！
+</code></pre>
+<p>sed 的『 -i 』选项可以直接修改档案内容，这功能非常有帮助！举例来说，如果你有一个 100 万行的档案，你要在第 100 行加某些文字，此时使用 vim 可能会疯掉！因为档案太大了！那怎办？就利用 sed 啊！透过 sed 直接修改/取代的功能，你甚至不需要使用 vim 去修订！很棒吧！</p>
+<h2>延伸正规表达式</h2>
+<h3>延伸正规表示法</h3>
+<p>事实上，一般读者只要了解基础型的正规表示法大概就已经相当足够了，不过，某些时刻为了要简化整个指令操作， 了解一下使用范围更广的延伸型正规表示法的表示式会更方便呢！举个简单的例子好了，在上节的例题三的最后一个例子中，我们要去除空白行与行首为 # 的行列，使用的是</p>
+<pre><code class="language-bash">grep -v &#39;^$&#39; regular_express.txt | grep -v &#39;^#&#39;
+</code></pre>
+<p>需要使用到管线命令来搜寻两次！那么如果使用延伸型的正规表示法，我们可以简化为：</p>
+<pre><code class="language-bash">egrep -v &#39;^$|^#&#39; regular_express.txt
+</code></pre>
+<p>延伸型正规表示法可以透过群组功能『 | 』来进行一次搜寻！那个在单引号内的管线意义为『或 or』啦！ 是否变的更简单呢？此外，grep 预设仅支持基础正规表示法，如果要使用延伸型正规表示法，你可以使用 grep -E ， 不过更建议直接使用 egrep ！直接区分指令比较好记忆！其实 egrep 与 grep -E 是类似命令别名的关系啦！</p>
+<table>
+<thead>
+<tr>
+<th>RE 字符</th>
+<th>意义与范例</th>
+</tr>
+</thead>
+</table>
+<p><strong><code>+</code></strong></p>
+<p>意义：重复『一个或一个以上』的前一个 RE 字符</p>
+<p>范例：搜寻 (god) (good) (goood)... 等等的字符串。 那个 o+ 代表『一个以上的 o 』所以，底下的执行成果会将第 1, 9, 13 行列出来。</p>
+<pre><code class="language-bash">egrep -n &#39;go+d&#39; regular_express.txt
+</code></pre>
+<p><strong><code>?</code></strong></p>
+<p>意义：『零个或一个』的前一个 RE 字符</p>
+<p>范例：搜寻 (gd) (god) 这两个字符串。 那个 o? 代表『空的或 1 个 o 』所以，上面的执行成果会将第 13, 14 行列出来。 有没有发现到，这两个案例( &#39;go+d&#39; 与 &#39;go?d&#39; )的结果集合与 &#39;go*d&#39; 相同？ 想想看，这是为什么喔！ ^_^</p>
+<pre><code class="language-bash">egrep -n &#39;go?d&#39; regular_express.txt
+</code></pre>
+<p><strong><code>|</code></strong></p>
+<p>意义：用或( or )的方式找出数个字符串</p>
+<p>范例：搜寻 gd 或 good 这两个字符串，注意，是『或』！ 所以，第 1,9,14 这三行都可以被打印出来喔！那如果还想要找出 dog 呢？</p>
+<pre><code class="language-bash">egrep -n &#39;gd|good&#39; regular_express.txt
+egrep -n &#39;gd|good|dog&#39; regular_express.txt
+</code></pre>
+<p><strong><code>()</code></strong></p>
+<p>意义：找出『群组』字符串</p>
+<p>范例：搜寻 (glad) 或 (good) 这两个字符串，因为 g 与 d 是重复的，所以， 我就可以将 la 与 oo 列于 ( ) 当中，并以 | 来分隔开来，就可以啦！</p>
+<pre><code class="language-bash">egrep -n &#39;g(la|oo)d&#39; regular_express.txt
+</code></pre>
+<p><strong><code>()+</code></strong></p>
+<p>意义：多个重复群组的判别</p>
+<p>范例：将『AxyzxyzxyzxyzC』用 echo 叫出，然后再使用如下的方法搜寻一下！</p>
+<pre><code class="language-bash">echo &#39;AxyzxyzxyzxyzC&#39; | egrep &#39;A(xyz)+C&#39;
+</code></pre>
+<p>上面的例子意思是说，我要找开头是 A 结尾是 C ，中间有一个以上的 &quot;xyz&quot; 字符串的意思～</p>
+<p>以上这些就是延伸型的正规表示法的特殊字符。另外，要特别强调的是，那个 ! 在正规表示法当中并不是特殊字符， 所以，如果你想要查出来档案中含有 ! 与 &gt; 的字行时，可以这样：</p>
+<pre><code class="language-bash">grep -n &#39;[!&gt;]&#39; regular_express.txt
+</code></pre>
+<p>这样可以了解了吗？常常看到有陷阱的题目写：『反向选择这样对否？ &#39;[!a-z]&#39;？』， 呵呵！是错的哟～要 &#39;[^a-z] 才是对的！至于更多关于正规表示法的进阶文章，请参考文末的参考数据(注 2)</p>
+<h2>文件格式化printf</h2>
+<pre><code class="language-bash">[root@www ~]# printf &#39;打印格式&#39; 实际内容
+选项与参数：
+关于格式方面的几个特殊样式：
+       \a    警告声音输出
+       \b    退格键(backspace)
+       \f    清除屏幕 (form feed)
+       \n    输出新的一行
+       \r    亦即 Enter 按键
+       \t    水平的 [tab] 按键
+       \v    垂直的 [tab] 按键
+       \xNN  NN 为两位数的数字，可以转换数字成为字符。
+关于 C 程序语言内，常见的变数格式
+       %ns   那个 n 是数字， s 代表 string ，亦即多少个字符；
+       %ni   那个 n 是数字， i 代表 integer ，亦即多少整数字数；
+       %N.nf 那个 n 与 N 都是数字， f 代表 floating (浮点)，如果有小数字数，
+             假设我共要十个位数，但小数点有两位，即为 %10.2f 啰！
+</code></pre>
+<p>接下来我们来进行几个常见的练习。假设所有的数据都是一般文字 (这也是最常见的状态)，因此最常用来分隔数据的符号就是 [Tab] 啦！因为 [Tab] 按键可以将数据作个整齐的排列！那么如何利用 printf 呢？参考底下这个范例：</p>
+<p><strong>范例一：将刚刚上头数据的档案 (printf.txt) 内容仅列出姓名与成绩：(用 [tab] 分隔)</strong></p>
+<pre><code class="language-bash">[root@www ~]# printf &#39;%s\t %s\t %s\t %s\t %s\t \n&#39; $(cat printf.txt)
+Name     Chinese         English         Math    Average
+DmTsai   80      60      92      77.33
+VBird    75      55      80      70.00
+Ken      60      90      70      73.33
+</code></pre>
+<p>由于 printf 并不是管线命令，因此我们得要透过类似上面的功能，将档案内容先提出来给 printf 作为后续的资料才行。 如上所示，我们将每个数据都以 [tab] 作为分隔，但是由于 Chinese 长度太长，导致 English 中间多了一个 [tab] 来将资料排列整齐！啊～结果就看到资料对齐结果的差异了！</p>
+<p>另外，在 printf 后续的那一段格式中，%s 代表一个不固定长度的字符串，而字符串与字符串中间就以 \t 这个 [tab] 分隔符来处理！你要记得的是，由于 \t 与 %s 中间还有空格，因此每个字符串间会有一个 [tab] 与一个空格键的分隔喔！</p>
+<p><strong>范例二：将上述资料关于第二行以后，分别以字符串、整数、小数点来显示：</strong></p>
+<pre><code class="language-bash">[root@www ~]# printf &#39;%10s %5i %5i %5i %8.2f \n&#39; $(cat printf.txt |\
+&gt; grep -v Name)
+    DmTsai    80    60    92    77.33
+     VBird    75    55    80    70.00
+       Ken    60    90    70    73.33
+</code></pre>
+<p>上面这一串格式想必您看得很辛苦！没关系！一个一个来解释！上面的格式共分为五个字段， %10s 代表的是一个长度为 10 个字符的字符串字段，%5i 代表的是长度为 5 个字符的数字字段，至于那个 %8.2f 则代表长度为 8 个字符的具有小数点的字段，其中小数点有两个字符宽度。我们可以使用底下的说明来介绍 %8.2f 的意义：</p>
+<pre><code class="language-text">字符宽度： 12345678
+%8.2f 意义：00000.00
+</code></pre>
+<p>如上所述，全部的宽度仅有 8 个字符，整数部分占有 5 个字符，小数点本身 (.) 占一位，小数点下的位数则有两位。 这种格式经常使用于数值程序的设计中！这样了解乎？自己试看看如果要将小数点位数变成 1 位又该如何处理？</p>
+<p><strong>范例三：列出 16 进位数值 45 代表的字符为何？</strong></p>
+<pre><code class="language-bash">[root@www ~]# printf &#39;\x45\n&#39;
+E
+# 这东西也很好玩～他可以将数值转换成为字符，如果你会写 script 的话，
+# 可以自行测试一下，由 20~80 之间的数值代表的字符是啥喔！ ^_^
+</code></pre>
+<h2>文件格式化awk</h2>
+<ul>
+<li>awk：好用的数据处理工具</li>
+</ul>
+<p>awk 也是一个非常棒的数据处理工具！相较于 sed 常常作用于一整个行的处理， awk 则比较倾向于一行当中分成数个『字段』来处理。因此，awk 相当的适合处理小型的数据数据处理呢！awk 通常运作的模式是这样的：</p>
+<pre><code class="language-bash">[root@www ~]# awk &#39;条件类型1{动作1} 条件类型2{动作2} ...&#39; filename
+</code></pre>
+<p>awk 后面接两个单引号并加上大括号 {} 来设定想要对数据进行的处理动作。 awk 可以处理后续接的档案，也可以读取来自前个指令的 standard output 。 但如前面说的， awk 主要是处理『每一行的字段内的数据』，而默认的『字段的分隔符为 &quot;空格键&quot; 或 &quot;[tab]键&quot; 』！举例来说，我们用 last 可以将登入者的数据取出来，结果如下所示：</p>
+<pre><code class="language-bash">[root@www ~]# last -n 5 &lt;==仅取出前五行
+root     pts/1   192.168.1.100  Tue Feb 10 11:21   still logged in
+root     pts/1   192.168.1.100  Tue Feb 10 00:46 - 02:28  (01:41)
+root     pts/1   192.168.1.100  Mon Feb  9 11:41 - 18:30  (06:48)
+</code></pre>
+<p>若我想要取出账号与登入者的 IP ，且账号与 IP 之间以 [tab] 隔开，则会变成这样：</p>
+<pre><code class="language-bash">[root@www ~]# last -n 5 | awk &#39;{print $1 &quot;\t&quot; $3}&#39;
+root    192.168.1.100
+root    192.168.1.100
+root    192.168.1.100
+dmtsai  192.168.1.100
+root    Fri
+</code></pre>
+<p>上表是 awk 最常使用的动作！透过 print 的功能将字段数据列出来！字段的分隔则以空格键或 [tab] 按</p>
+<p>称。以上面的例子来说， root 是 $1 ，因为他是第一栏嘛！至于 192.168.1.100 是第三栏， 所以他就是 $3 啦！后面以此类推～呵呵！还有个变数喔！那就是 $0 ，$0 代表『一整列资料』的意思～以上面的例子来说，第一行的 $0 代表的就是『root .... 』那一行啊！ 由此可知，刚刚上面五行当中，整个 awk 的处理流程是：</p>
+<ol>
+<li>读入第一行，并将第一行的资料填入 $0, $1, $2.... 等变数当中；</li>
+<li>依据 &quot;条件类型&quot; 的限制，判断是否需要进行后面的 &quot;动作&quot;；</li>
+<li>做完所有的动作与条件类型；</li>
+<li>若还有后续的『行』的数据，则重复上面 1~3 的步骤，直到所有的数据都读完为止。</li>
+</ol>
+<p>经过这样的步骤，你会晓得， awk 是『以行为一次处理的单位』， 而『以字段为最小的处理单位』。好了，那么 awk 怎么知道我到底这个数据有几行？有几栏呢？这就需要 awk 的内建变量的帮忙啦～</p>
+<table>
+<thead>
+<tr>
+<th>变量名称</th>
+<th>代表意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NF</td>
+<td>每一行 ($0) 拥有的字段总数</td>
+</tr>
+<tr>
+<td>NR</td>
+<td>目前 awk 所处理的是『第几行』数据</td>
+</tr>
+<tr>
+<td>FS</td>
+<td>目前的分隔字符，默认是空格键</td>
+</tr>
+</tbody></table>
+<p>我们继续以上面 last -n 5 的例子来做说明，如果我想要：</p>
+<ul>
+<li>列出每一行的账号(就是 $1)；</li>
+<li>列出目前处理的行数(就是 awk 内的 NR 变量)</li>
+<li>并且说明，该行有多少字段(就是 awk 内的 NF 变量)</li>
+</ul>
+<p><strong>Tips:</strong></p>
+<p>要注意喔，awk 后续的所有动作是以单引号『 &#39; 』括住的，由于单引号与双引号都必须是成对的， 所以， awk 的格式内容如果想要以 print 打印时，记得非变量的文字部分，包含上一小节 printf 提到的格式中，都需要使用双引号来定义出来喔！因为单引号已经是 awk 的指令固定用法了！</p>
+<pre><code class="language-bash">[root@www ~]# last -n 5| awk &#39;{print $1 &quot;\t lines: &quot; NR &quot;\t columes: &quot; NF}&#39;
+root     lines: 1        columes: 10
+root     lines: 2        columes: 10
+root     lines: 3        columes: 10
+dmtsai   lines: 4        columes: 10
+root     lines: 5        columes: 9
+# 注意喔，在 awk 内的 NR, NF 等变量要用大写，且不需要有钱字号 $ 啦！
+</code></pre>
+<ul>
+<li>awk 的逻辑运算字符</li>
+</ul>
+<p>既然有需要用到 &quot;条件&quot; 的类别，自然就需要一些逻辑运算啰～例如底下这些：</p>
+<table>
+<thead>
+<tr>
+<th>运算单元</th>
+<th>代表意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>&gt;</code></td>
+<td>大于</td>
+</tr>
+<tr>
+<td><code>&lt;</code></td>
+<td>小于</td>
+</tr>
+<tr>
+<td><code>&gt;=</code></td>
+<td>大于或等于</td>
+</tr>
+<tr>
+<td><code>&lt;=</code></td>
+<td>小于或等于</td>
+</tr>
+<tr>
+<td><code>==</code></td>
+<td>等于</td>
+</tr>
+<tr>
+<td><code>!=</code></td>
+<td>不等于</td>
+</tr>
+</tbody></table>
+<p>值得注意的是那个『 == 』的符号，因为：</p>
+<ul>
+<li>逻辑运算上面亦即所谓的大于、小于、等于等判断式上面，习惯上是以『 == 』来表示；</li>
+<li>如果是直接给予一个值，例如变量设定时，就直接使用 = 而已。</li>
+</ul>
+<p>好了，我们实际来运用一下逻辑判断吧！举例来说，在 /etc/passwd 当中是以冒号 &quot;:&quot; 来作为字段的分隔， 该档案中第一字段为账号，第三字段则是 UID。那假设我要查阅，第三栏小于 10 以下的数据，并且仅列出账号与第三栏， 那么可以这样做：</p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/passwd | \
+&gt; awk &#39;{FS=&quot;:&quot;} $3 &lt; 10 {print $1 &quot;\t &quot; $3}&#39;
+root:x:0:0:root:/root:/bin/bash
+bin      1
+daemon   2
+....(以下省略)....
+</code></pre>
+<p>有趣吧！不过，怎么第一行没有正确的显示出来呢？这是因为我们读入第一行的时候，那些变数 $1, $2... 默认还是以空格键为分隔的，所以虽然我们定义了 FS=&quot;:&quot; 了， 但是却仅能在第二行后才开始生效。那么怎么办呢？我们可以预先设定 awk 的变量啊！ 利用 BEGIN 这个关键词喔！这样做：</p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/passwd | \
+&gt; awk &#39;BEGIN {FS=&quot;:&quot;} $3 &lt; 10 {print $1 &quot;\t &quot; $3}&#39;
+root     0
+bin      1
+daemon   2
+......(以下省略)......
+</code></pre>
+<p>很有趣吧！而除了 BEGIN 之外，我们还有 END 呢！另外，如果要用 awk 来进行『计算功能』呢？以</p>
+<pre><code class="language-bash">[root@www ~]# cat pay.txt | \
+&gt; awk &#39;NR==1{printf &quot;%10s %10s %10s %10s %10s\n&quot;,$1,$2,$3,$4,&quot;Total&quot; }
+NR&gt;=2{total = $2 + $3 + $4
+printf &quot;%10s %10d %10d %10d %10.2f\n&quot;, $1, $2, $3, $4, total}&#39;
+      Name        1st        2nd        3th      Total
+     VBird      23000      24000      25000   72000.00
+    DMTsai      21000      20000      23000   64000.00
+     Bird2      43000      42000      41000  126000.00
+</code></pre>
+<p>上面的例子有几个重要事项应该要先说明的：</p>
+<ul>
+<li>awk 的指令间隔：所有 awk 的动作，亦即在 {} 内的动作，如果有需要多个指令辅助时，可利用分号『;』间隔， 或者直接以 [Enter] 按键来隔开每个指令，例如上面的范例中，鸟哥共按了三次 [enter] 喔！</li>
+<li>逻辑运算当中，如果是『等于』的情况，则务必使用两个等号『==』！</li>
+<li>格式化输出时，在 printf 的格式设定当中，务必加上 \n ，才能进行分行！</li>
+<li>与 bash shell 的变量不同，在 awk 当中，变量可以直接使用，不需加上 $ 符号。</li>
+</ul>
+<h2>档案比对diff</h2>
+<p>什么时候会用到档案的比对啊？通常是『同一个软件包的不同版本之间，比较配置文件与原始档的差异』。 很多时候所谓的档案比对，通常是用在 ASCII 纯文本档的比对上的！那么比对档案的指令有哪些？最常见的就是 diff 啰！ 另外，除了 diff 比对之外，我们还可以藉由 cmp 来比对非纯文本档！同时，也能够藉由 diff 建立的分析档， 以处理补丁 (patch) 功能的档案呢！就来玩玩先！</p>
+<ul>
+<li>diff</li>
+</ul>
+<p>diff 就是用在比对两个档案之间的差异的，并且是以行为单位来比对的！一般是用在 ASCII 纯文本档的比对上。 由于是以行为比对的单位，因此 diff 通常是用在同一的档案(或软件)的新旧版本差异上！ 举例来说，假如我们要将 /etc/passwd 处理成为一个新的版本，处理方式为： 将第四行删除，第六行则取代成为『no six line』，新的档案放置到 /tmp/test 里面，那么应该怎么做？</p>
+<pre><code class="language-bash">[root@www ~]# mkdir -p /tmp/test &lt;==先建立测试用的目录
+[root@www ~]# cd /tmp/test
+[root@www test]# cp /etc/passwd passwd.old
+[root@www test]# cat /etc/passwd | \
+&gt; sed -e &#39;4d&#39; -e &#39;6c no six line&#39; &gt; passwd.new
+# 注意一下， sed 后面如果要接超过两个以上的动作时，每个动作前面得加 -e 才行！
+# 透过这个动作，在 /tmp/test  里面便有新旧的 passwd 档案存在了！
+</code></pre>
+<p>接下来讨论一下关于 diff 的用法吧！</p>
+<pre><code class="language-bash">[root@www ~]# diff [-bBi] from-file to-file
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>from-file</code>：一个档名，作为原始比对档案的档名；</li>
+<li><code>to-file</code>：一个档名，作为目的比对档案的档名；</li>
+</ul>
+<p>注意，from-file 或 to-file 可以 - 取代，那个 - 代表『Standard input』之意。</p>
+<ul>
+<li><code>-b</code>：忽略一行当中，仅有多个空白的差异(例如 &quot;about me&quot; 与 &quot;about     me&quot; 视为相同</li>
+<li><code>-B</code>：忽略空白行的差异。</li>
+<li><code>-i</code>：忽略大小写的不同。</li>
+</ul>
+<p><strong>范例一：比对 passwd.old 与 passwd.new 的差异：</strong></p>
+<pre><code class="language-bash">[root@www test]# diff passwd.old passwd.new
+4d3    &lt;==左边第四行被删除 (d) 掉了，基准是右边的第三行
+&lt; adm:x:3:4:adm:/var/adm:/sbin/nologin  &lt;==这边列出左边(&lt;)档案被删除的那一行内容
+6c5    &lt;==左边档案的第六行被取代 (c) 成右边档案的第五行
+&lt; sync:x:5:0:sync:/sbin:/bin/sync  &lt;==左边(&lt;)档案第六行内容
+---
+&gt; no six line                      &lt;==右边(&gt;)档案第五行内容
+# 很聪明吧！用 diff 就把我们刚刚的处理给比对完毕了！
+</code></pre>
+<h2>档案对比cmp</h2>
+<ul>
+<li>cmp</li>
+</ul>
+<p>相对于 diff 的广泛用途， cmp 似乎就用的没有这么多了～ cmp 主要也是在比对两个档案，他主要利用『字节』单位去比对， 因此，当然也可以比对 binary file 啰～(还是要再提醒喔， diff 主要是以『行』为单位比对， cmp 则是以『字节』为单位去比对，这并不相同！)</p>
+<pre><code class="language-bash">[root@www ~]# cmp [-s] file1 file2
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-s</code>：将所有的不同点的字节处都列出来。因为 cmp 预设仅会输出第一个发现的不同点。</li>
+</ul>
+<p><strong>范例一：用 cmp 比较一下 passwd.old 及 passwd.new</strong></p>
+<pre><code class="language-bash">[root@www test]# cmp passwd.old passwd.new
+passwd.old passwd.new differ: byte 106, line 4
+</code></pre>
+<p>看到了吗？第一个发现的不同点在第四行，而且字节数是在第 106 个字节处！这个 cmp 也可以用来比对 binary 啦！ ^_^</p>
+<h2>档案修复patch</h2>
+<ul>
+<li>patch</li>
+</ul>
+<p>patch 这个指令与 diff 可是有密不可分的关系啊！我们前面提到，diff 可以用来分辨两个版本之间的差异， 举例来说，刚刚我们所建立的 passwd.old 及 passwd.new 之间就是两个不同版本的档案。 那么，如果要『升级』呢？就是『将旧的档案升级成为新的档案』时，应该要怎么做呢？ 其实也不难啦！就是『先比较先旧版本的差异，并将差异档制作成为补丁档，再由补丁档更新旧档案』即可。 举例来说，我们可以这样做测试：</p>
+<p><strong>范例一：以 /tmp/test 内的 passwd.old 与 passwd.new  制作补丁档案</strong></p>
+<pre><code class="language-bash">[root@www test]# diff -Naur passwd.old passwd.new &gt; passwd.patch
+[root@www test]# cat passwd.patch
+--- passwd.old  2009-02-10 14:29:09.000000000 +0800 &lt;==新旧档案的信息
++++ passwd.new  2009-02-10 14:29:18.000000000 +0800
+@@ -1,9 +1,8 @@   &lt;==新旧档案要修改数据的界定范围，旧档在 1-9 行，新档在 1-8 行
+ root:x:0:0:root:/root:/bin/bash
+ bin:x:1:1:bin:/bin:/sbin/nologin
+ daemon:x:2:2:daemon:/sbin:/sbin/nologin
+-adm:x:3:4:adm:/var/adm:/sbin/nologin      &lt;==左侧档案删除
+ lp:x:4:7:lp:/var/spool/lpd:/sbin/nologin
+-sync:x:5:0:sync:/sbin:/bin/sync           &lt;==左侧档案删除
++no six line                               &lt;==右侧新档加入
+ shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+ halt:x:7:0:halt:/sbin:/sbin/halt
+ mail:x:8:12:mail:/var/spool/mail:/sbin/nologin
+</code></pre>
+<p>一般来说，使用 diff 制作出来的比较档案通常使用扩展名为 .patch 啰。至于内容就如同上面介绍的样子。 基本上就是以行为单位，看看哪边有一样与不一样的，找到一样的地方，然后将不一样的地方取代掉！ 以上面表格为例，新档案看到 - 会删除，看到 + 会加入！好了，那么如何将旧的档案更新成为新的内容呢？ 就是将 passwd.old 改成与 passwd.new 相同！可以这样做：</p>
+<pre><code class="language-bash">[root@www ~]# patch -pN &lt; patch_file    &lt;==更新
+[root@www ~]# patch -R -pN &lt; patch_file &lt;==还原
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-p</code>：后面可以接『取消几层目录』的意思。</li>
+<li><code>-R</code>：代表还原，将新的文件还原成原来旧的版本。</li>
+</ul>
+<p><strong>范例二：将刚刚制作出来的 patch file 用来更新旧版数据</strong></p>
+<pre><code class="language-bash">[root@www test]# patch -p0 &lt; passwd.patch
+patching file passwd.old
+[root@www test]# ll passwd*
+-rw-r--r-- 1 root root 1929 Feb 10 14:29 passwd.new
+-rw-r--r-- 1 root root 1929 Feb 10 15:12 passwd.old &lt;==档案一模一样！
+</code></pre>
+<p><strong>范例三：恢复旧档案的内容</strong></p>
+<pre><code class="language-bash">[root@www test]# patch -R -p0 &lt; passwd.patch
+[root@www test]# ll passwd*
+-rw-r--r-- 1 root root 1929 Feb 10 14:29 passwd.new
+-rw-r--r-- 1 root root 1986 Feb 10 15:18 passwd.old
+# 档案就这样恢复成为旧版本啰
+</code></pre>
+<p>为什么这里会使用 -p0 呢？因为我们在比对新旧版的数据时是在同一个目录下， 因此不需要减去目录啦！如果是使用整体目录比对 (diff 旧目录 新目录) 时， 就得要依据建立 patch 档案所在目录来进行目录的删减啰！</p>
+<h2>正则表达式总结与习题</h2>
+<ul>
+<li><p>正规表示法就是处理字符串的方法，他是以行为单位来进行字符串的处理行为；</p>
+</li>
+<li><p>正规表示法透过一些特殊符号的辅助，可以让使用者轻易的达到『搜寻/删除/取代』某特定字符串的处理程序；</p>
+</li>
+<li><p>只要工具程序支持正规表示法，那么该工具程序就可以用来作为正规表示法的字符串处理之用；</p>
+</li>
+<li><p>正规表示法与通配符是完全不一样的东西！通配符 (wildcard) 代表的是 bash 操作接口的一个功能， 但正规表示法则是一种字符串处理的表示方式！</p>
+</li>
+<li><p>使用 grep 或其他工具进行正规表示法的字符串比对时，因为编码的问题会有不同的状态，因此， 你最好将 LANG 等变量设定为 C 或者是 en 等英文语系！</p>
+</li>
+<li><p>grep 与 egrep 在正规表示法里面是很常见的两支程序，其中， egrep 支持更严谨的正规表示法的语法；</p>
+</li>
+<li><p>由于编码系统的不同，不同的语系 (LANG) 会造成正规表示法撷取资料的差异。因此可利用特殊符号如 [:upper:] 来替代编码范围较佳；</p>
+</li>
+<li><p>由于严谨度的不同，正规表示法之上还有更严谨的延伸正规表示法；</p>
+</li>
+<li><p>基础正规表示法的特殊字符有： *, ?, [], [-], [^], ^, $ 等！</p>
+</li>
+<li><p>常见的正规表示法工具有： grep , sed, vim 等等</p>
+</li>
+<li><p>printf 可以透过一些特殊符号来将数据进行格式化输出；</p>
+</li>
+<li><p>awk 可以使用『字段』为依据，进行数据的重新整理与输出；</p>
+</li>
+<li><p>文件的比对中，可利用 diff 及 cmp 进行比对，其中 diff 主要用在纯文本档案方面的新旧版本比对</p>
+</li>
+<li><p>patch 指令可以将旧版数据更新到新版 (主要亦由 diff 建立 patch 的补丁来源档案)</p>
+</li>
+<li><p>情境模拟题一：透过 grep 搜寻特殊字符串，并配合数据流重导向来处理大量的档案搜寻问题。</p>
+<ul>
+<li>目标：正确的使用正规表示法；</li>
+<li>前提：需要了解数据流重导向，以及透过子指令 $(command) 来处理档名的搜寻；</li>
+</ul>
+</li>
+</ul>
+<ol start="3">
+<li>利用正规表示法找出系统中含有某些特殊关键词的档案，举例来说，找出在 /etc 底下含有星号 (*) 的档案与内容：</li>
+</ol>
+<p>解决的方法必须要搭配通配符，但是星号本身就是正规表示法的字符，因此需要如此进行：</p>
+<pre><code class="language-bash">[root@www ~]# grep &#39;\*&#39; /etc/*
+</code></pre>
+<p>你必须要注意的是，在单引号内的星号是正规表示法的字符，但我们要找的是星号，因此需要加上跳脱字符 ()。但是在 /etc/* 的那个 * 则是 bash 的通配符！ 代表的是档案的档名喔！不过由上述的这个结果中，我们仅能找到 /etc 底下第一层子目录的数据，无法找到次目录的数据， 如果想要连同完整的 /etc 次目录数据，就得要这样做：</p>
+<pre><code class="language-bash">[root@www ~]# grep &#39;\*&#39; $(find /etc -type f)
+</code></pre>
+<pre><code class="language-bash">[root@www ~]# grep &#39;\*&#39; $(find / -type f)
+-bash: /bin/grep: Argument list too long
+</code></pre>
+<p>真要命！由于指令列的内容长度是有限制的，因此当搜寻的对象是整个系统时，上述的指令会发生错误。那该如何是好？ 此时我们可以透过管线命令以及 xargs 来处理。举例来说，让 grep 每次仅能处理 10 个档名，此时你可以这样想：</p>
+<p>a. 先用 find 去找出档案；
+b. 用 xargs 将这些档案每次丢 10 个给 grep 来作为参数处理；
+c. grep 实际开始搜寻档案内容。</p>
+<p>所以整个作法就会变成这样：</p>
+<pre><code class="language-bash">[root@www ~]# find / -type f | xargs -n 10 grep &#39;\*&#39;
+</code></pre>
+<ol start="5">
+<li>从输出的结果来看，数据量实在非常庞大！那如果我只是想要知道档名而已呢？你可以透过 grep 的功能来找到如下的参数！</li>
+</ol>
+<pre><code class="language-bash">[root@www ~]# find / -type f | xargs -n 10 grep -l &#39;\*&#39;
+</code></pre>
+<p>情境模拟题二：使用管线命令配合正规表示法建立新指令与新变量。我想要建立一个新的指令名为 myip ， 这个指令能够将我系统的 IP 捉出来显示。而我想要有个新变量，变量名为 MYIP ，这个变量可以记录我的 IP 。</p>
+<p>处理的方式很简单，我们可以这样试看看：</p>
+<ol start="0">
+<li>首先，我们依据本章内的 ifconfig, sed 与 awk 来取得我们的 IP ，指令为：</li>
+</ol>
+<pre><code class="language-bash">[root@www ~]# ifconfig eth0 | grep &#39;inet addr&#39; | \
+&gt;  sed &#39;s/^.*inet addr://g&#39;| cut -d &#39; &#39; -f1
+</code></pre>
+<ol>
+<li>再来，我们可以将此指令利用 alias 指定为 myip 喔！如下所示：</li>
+</ol>
+<pre><code class="language-bash">[root@www ~]# alias myip=&quot;ifconfig eth0 | grep &#39;inet addr&#39; | \
+&gt;  sed &#39;s/^.*inet addr://g&#39;| cut -d &#39; &#39; -f1 &quot;
+</code></pre>
+<ol start="2">
+<li>最终，我们可以透过变量设定来处理 MYIP 喔！</li>
+</ol>
+<pre><code class="language-bash">[root@www ~]# MYIP=$( myip )
+</code></pre>
+<ol start="3">
+<li>如果每次登入都要生效，可以将 alias 与 MYIP 的设定那两行，写入你的 ~/.bashrc 即可！</li>
+</ol>
+<p>简答题部分：</p>
+<ul>
+<li>我想要知道，在 /etc 底下，只要含有 XYZ 三个字符的任何一个字符的那一行就列出来，要怎样进行？</li>
+</ul>
+<pre><code class="language-bash">grep [XYZ] /etc/*
+</code></pre>
+<ul>
+<li>将 /etc/termcap 内容取出后，(1)去除开头为 # 的行 (2)去除空白行 (3)取出开头为英文字母的那几行 (4)最终统计总行数该如何进行？</li>
+</ul>
+<pre><code class="language-bash">grep -v &#39;^#&#39; /etc/termcap | grep -v &#39;^$&#39; | grep &#39;^[:alpha:]&#39; | wc -l
+</code></pre>
+<h2>行列总结</h2>
+<p>如果要取出某一行，例如取出第11-20行，可以用如下命令:</p>
+<p>1、head -n 20 | tail -n 10</p>
+<p>2、sed -n &#39;11,20p&#39;</p>
+<p>如果取出某一列，如下：</p>
+<p>awk &#39;{print $1 &quot;\t&quot; $3}&#39;  取出第一列和第三列，中间用空格分隔</p>
+<ul>
+<li>将 /etc/termcap 内容取出后，(1)去除开头为 # 的行 (2)去除空白行 (3)取出开头为英文字母的那几行 (4)最终统计总行数该如何进行？</li>
+</ul>
+<pre><code class="language-bash">grep -v &#39;^#&#39; /etc/termcap | grep -v &#39;^$&#39; | grep &#39;^[:alpha:]&#39; | wc -l
+</code></pre>
+
+<a class="btn" href="/#/p/1sjzaro1sm">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

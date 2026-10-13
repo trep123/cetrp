@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsadd user 命令详解与批量创建 AD 用户 - 林的笔记</title>
+<meta name="description" content="dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。">
+<meta name="keywords" content="Windows Server,Active Directory,dsadd,批处理">
+<link rel="canonical" href="https://0x-z.cn/p/1652k0x1c1/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="dsadd user 命令详解与批量创建 AD 用户">
+<meta property="og:description" content="dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。">
+<meta property="og:url" content="https://0x-z.cn/p/1652k0x1c1/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"dsadd user 命令详解与批量创建 AD 用户","description":"dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。","url":"https://0x-z.cn/p/1652k0x1c1/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-10","dateModified":"2026-10-10","keywords":"Windows Server,Active Directory,dsadd,批处理"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/1652k0x1c1">在博客中阅读</a></header>
+<article>
+<h1>dsadd user 命令详解与批量创建 AD 用户</h1>
+<div class="meta"><span>2026-10-10</span><span>WindowsServer / AD</span><span>#Windows Server</span><span>#Active Directory</span><span>#dsadd</span><span>#批处理</span></div>
+<p><code>dsadd user</code> 用于在 Active Directory（AD）中创建用户账户。需要<strong>域管理员</strong>（或对目标 OU 有创建权限的账户），在域控制器或已安装 RSAT 工具的计算机上运行。</p>
+<!-- more -->
+
+<h2>一、基本语法</h2>
+<pre><code class="language-cmd">dsadd user &lt;UserDN&gt; [参数]
+</code></pre>
+<p><code>&lt;UserDN&gt;</code> 是用户的 Distinguished Name（可分辨名称），格式为：</p>
+<pre><code class="language-text">CN=用户名,OU=组织单位,DC=域名,DC=后缀
+</code></pre>
+<p>例如 <code>CN=John,OU=Sales,DC=contoso,DC=com</code>。DN 中含空格时要用双引号括起来。</p>
+<h2>二、常用参数</h2>
+<h3>1. 账户基本信息</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-samid &lt;SAM名&gt;</code></td>
+<td>SAM 账户名，即旧式登录名</td>
+<td><code>john</code></td>
+</tr>
+<tr>
+<td><code>-upn &lt;UPN&gt;</code></td>
+<td>用户主体名称，即新式登录名</td>
+<td><code>john@contoso.com</code></td>
+</tr>
+<tr>
+<td><code>-fn &lt;名&gt;</code></td>
+<td>名（First Name）</td>
+<td><code>John</code></td>
+</tr>
+<tr>
+<td><code>-mi &lt;缩写&gt;</code></td>
+<td>中间名缩写</td>
+<td><code>M</code></td>
+</tr>
+<tr>
+<td><code>-ln &lt;姓&gt;</code></td>
+<td>姓（Last Name）</td>
+<td><code>Doe</code></td>
+</tr>
+<tr>
+<td><code>-display &lt;显示名&gt;</code></td>
+<td>显示名称</td>
+<td><code>&quot;John Doe&quot;</code></td>
+</tr>
+<tr>
+<td><code>-empid &lt;工号&gt;</code></td>
+<td>员工编号</td>
+<td><code>10086</code></td>
+</tr>
+</tbody></table>
+<h3>2. 密码与安全</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>默认值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-pwd &lt;密码&gt;</code></td>
+<td>初始密码，需符合域密码策略；写 <code>*</code> 会提示输入</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>-mustchpwd {yes|no}</code></td>
+<td>下次登录时必须更改密码</td>
+<td><code>no</code></td>
+</tr>
+<tr>
+<td><code>-canchpwd {yes|no}</code></td>
+<td>用户能否更改密码</td>
+<td><code>yes</code></td>
+</tr>
+<tr>
+<td><code>-pwdneverexpires {yes|no}</code></td>
+<td>密码永不过期</td>
+<td><code>no</code></td>
+</tr>
+<tr>
+<td><code>-disabled {yes|no}</code></td>
+<td>创建后禁用账户</td>
+<td><code>no</code></td>
+</tr>
+<tr>
+<td><code>-acctexpires &lt;天数&gt;</code></td>
+<td>账户在多少天后过期；<code>0</code> 表示今天结束时过期，<code>never</code> 表示永不过期</td>
+<td><code>never</code></td>
+</tr>
+</tbody></table>
+<h3>3. 组织与联系信息</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-desc &lt;描述&gt;</code></td>
+<td>描述</td>
+</tr>
+<tr>
+<td><code>-office &lt;办公室&gt;</code></td>
+<td>办公室</td>
+</tr>
+<tr>
+<td><code>-tel &lt;电话&gt;</code></td>
+<td>电话</td>
+</tr>
+<tr>
+<td><code>-mobile &lt;手机&gt;</code></td>
+<td>手机</td>
+</tr>
+<tr>
+<td><code>-email &lt;邮箱&gt;</code></td>
+<td>电子邮件</td>
+</tr>
+<tr>
+<td><code>-title &lt;职务&gt;</code></td>
+<td>职务</td>
+</tr>
+<tr>
+<td><code>-dept &lt;部门&gt;</code></td>
+<td>部门</td>
+</tr>
+<tr>
+<td><code>-company &lt;公司&gt;</code></td>
+<td>公司</td>
+</tr>
+<tr>
+<td><code>-memberof &lt;组DN ...&gt;</code></td>
+<td>加入指定组，填组的 DN，多个组用空格分隔</td>
+</tr>
+</tbody></table>
+<h3>4. 主目录、配置文件与登录脚本</h3>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>-hmdir &lt;路径&gt;</code></td>
+<td>主目录（UNC 路径）</td>
+<td><code>\\server\home\$username$</code></td>
+</tr>
+<tr>
+<td><code>-hmdrv &lt;盘符&gt;</code></td>
+<td>主目录映射的盘符</td>
+<td><code>H:</code></td>
+</tr>
+<tr>
+<td><code>-profile &lt;路径&gt;</code></td>
+<td>漫游配置文件路径</td>
+<td><code>\\server\profiles\$username$</code></td>
+</tr>
+<tr>
+<td><code>-loscr &lt;脚本&gt;</code></td>
+<td>登录脚本</td>
+<td><code>logon.bat</code></td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>$username$</code> 是 dsadd 自带的占位符，会替换成 <code>-samid</code> 的值，必须同时指定 <code>-samid</code> 才生效。</p>
+</blockquote>
+<h2>三、示例</h2>
+<h3>示例 1：创建基础用户</h3>
+<pre><code class="language-cmd">dsadd user &quot;CN=John,OU=Sales,DC=contoso,DC=com&quot; -samid john -upn john@contoso.com -fn John -ln Doe -display &quot;John Doe&quot; -pwd P@ssw0rd -mustchpwd yes
+</code></pre>
+<p>创建用户 John，登录名为 <code>john</code>，初始密码 <code>P@ssw0rd</code>，下次登录必须修改密码。</p>
+<h3>示例 2：创建禁用账户</h3>
+<pre><code class="language-cmd">dsadd user &quot;CN=Jane,OU=IT,DC=contoso,DC=com&quot; -samid jane -pwd P@ssw0rd -disabled yes
+</code></pre>
+<h3>示例 3：带主目录和配置文件</h3>
+<pre><code class="language-cmd">dsadd user &quot;CN=Bob,OU=HR,DC=contoso,DC=com&quot; -samid bob -pwd P@ssw0rd -hmdir \\fileserver\home\$username$ -hmdrv H: -profile \\fileserver\profiles\$username$
+</code></pre>
+<p>为 Bob 分配主目录（映射为 <code>H:</code>）和漫游配置文件。</p>
+<h2>四、用 CSV 批量创建用户</h2>
+<h3>1. 准备 CSV</h3>
+<p>文件 <code>C:\users.csv</code>，每行一个用户，用英文逗号分隔，共 13 列：</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>变量</th>
+<th>含义</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>%a</code></td>
+<td>用户名（CN，也用作 UPN 前缀）</td>
+<td><code>zhangsan</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>%b</code></td>
+<td>姓</td>
+<td><code>张</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>%c</code></td>
+<td>名</td>
+<td><code>三</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>%d</code></td>
+<td>公司</td>
+<td><code>WSC</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>%e</code></td>
+<td>邮箱</td>
+<td><code>zhangsan@wsc39.test</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>%f</code></td>
+<td>职务</td>
+<td><code>工程师</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>%g</code></td>
+<td>描述（后半部分）</td>
+<td><code>技术部</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>%h</code></td>
+<td>电话</td>
+<td><code>010-12345678</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td><code>%i</code></td>
+<td>SAM 登录名</td>
+<td><code>zhangsan</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td><code>%j</code></td>
+<td>初始密码</td>
+<td><code>P@ssw0rd</code></td>
+</tr>
+<tr>
+<td>11</td>
+<td><code>%k</code></td>
+<td>所属组</td>
+<td><code>HQ-Users</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>%l</code></td>
+<td>所在 OU（组也在这个 OU 下）</td>
+<td><code>HQ</code></td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>%m</code></td>
+<td>描述（前半部分）</td>
+<td><code>总部</code></td>
+</tr>
+</tbody></table>
+<pre><code class="language-text">zhangsan,张,三,WSC,zhangsan@wsc39.test,工程师,技术部,010-12345678,zhangsan,P@ssw0rd,HQ-Users,HQ,总部
+</code></pre>
+<h3>2. 批量创建命令</h3>
+<p>直接在 cmd 窗口中执行：</p>
+<pre><code class="language-cmd">for /f &quot;tokens=1-13 delims=,&quot; %a in (C:\users.csv) do dsadd user &quot;cn=%a,ou=%l,dc=wsc39,dc=test&quot; -ln &quot;%b&quot; -fn &quot;%c&quot; -company &quot;%d&quot; -email &quot;%e&quot; -title &quot;%f&quot; -tel &quot;%h&quot; -samid &quot;%i&quot; -pwd &quot;%j&quot; -upn %a@wsc39.test -profile \\wsc39.test\HQ\users\profiles\%a -memberof &quot;cn=%k,ou=%l,dc=wsc39,dc=test&quot; -desc &quot;%m%g&quot;
+</code></pre>
+<p>参数对应关系：</p>
+<table>
+<thead>
+<tr>
+<th>dsadd 参数</th>
+<th>取值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>UserDN</td>
+<td><code>cn=%a,ou=%l,dc=wsc39,dc=test</code></td>
+</tr>
+<tr>
+<td><code>-ln</code> / <code>-fn</code></td>
+<td><code>%b</code> / <code>%c</code></td>
+</tr>
+<tr>
+<td><code>-company</code></td>
+<td><code>%d</code></td>
+</tr>
+<tr>
+<td><code>-email</code></td>
+<td><code>%e</code></td>
+</tr>
+<tr>
+<td><code>-title</code></td>
+<td><code>%f</code></td>
+</tr>
+<tr>
+<td><code>-tel</code></td>
+<td><code>%h</code></td>
+</tr>
+<tr>
+<td><code>-samid</code></td>
+<td><code>%i</code></td>
+</tr>
+<tr>
+<td><code>-pwd</code></td>
+<td><code>%j</code></td>
+</tr>
+<tr>
+<td><code>-upn</code></td>
+<td><code>%a@wsc39.test</code></td>
+</tr>
+<tr>
+<td><code>-profile</code></td>
+<td><code>\\wsc39.test\HQ\users\profiles\%a</code></td>
+</tr>
+<tr>
+<td><code>-memberof</code></td>
+<td><code>cn=%k,ou=%l,dc=wsc39,dc=test</code></td>
+</tr>
+<tr>
+<td><code>-desc</code></td>
+<td><code>%m%g</code>，即两列拼接，如「总部技术部」</td>
+</tr>
+</tbody></table>
+<h3>3. 批处理中的写法</h3>
+<p>写进 <code>.bat</code> 文件时，变量要写成两个百分号：</p>
+<pre><code class="language-bat">@echo off
+for /f &quot;skip=1 tokens=1-13 delims=,&quot; %%a in (C:\users.csv) do (
+  dsadd user &quot;cn=%%a,ou=%%l,dc=wsc39,dc=test&quot; -ln &quot;%%b&quot; -fn &quot;%%c&quot; -company &quot;%%d&quot; -email &quot;%%e&quot; -title &quot;%%f&quot; -tel &quot;%%h&quot; -samid &quot;%%i&quot; -pwd &quot;%%j&quot; -upn %%a@wsc39.test -profile \\wsc39.test\HQ\users\profiles\%%a -memberof &quot;cn=%%k,ou=%%l,dc=wsc39,dc=test&quot; -desc &quot;%%m%%g&quot;
+)
+pause
+</code></pre>
+<h3>4. 批量创建的注意事项</h3>
+<ul>
+<li><strong>首行是表头</strong>时加 <code>skip=1</code> 跳过。</li>
+<li><strong>不要有空字段</strong>：<code>for /f</code> 会把连续的逗号当成一个分隔符，某列为空时后面的列会整体错位。</li>
+<li><strong>中文乱码</strong>：CSV 用 ANSI（GBK）编码保存，或先执行 <code>chcp 65001</code> 并保存为 UTF-8（无 BOM）。</li>
+<li><strong>OU 和组要先存在</strong>：<code>-memberof</code> 指定的组不存在时，用户会创建成功，但加组会报错。</li>
+<li><strong>UPN 后缀</strong>要写域名（如 <code>@wsc39.test</code>），或已在「AD 域和信任关系」中添加过的 UPN 后缀。</li>
+<li><strong>UNC 路径</strong>：<code>\\wsc39.test\HQ</code> 写法依赖 DFS 命名空间；普通共享请写成 <code>\\服务器名\共享名</code>。</li>
+</ul>
+<h2>五、常见问题</h2>
+<ol>
+<li><strong>权限不足</strong>：确认当前账户是 Domain Admins 成员，或对目标 OU 有「创建用户对象」的委派权限。</li>
+<li><strong>DN 格式错误</strong>：DN 中的逗号、等号不能多写空格；OU 必须真实存在，嵌套 OU 写成 <code>OU=子,OU=父</code>。</li>
+<li><strong>密码不符合策略</strong>：默认策略要求至少 7 位并包含大写、小写、数字、符号中的三类。</li>
+<li><strong>对象已存在</strong>：同一个 OU 下 CN 不能重复，整个域内 <code>samid</code> 和 <code>upn</code> 不能重复。</li>
+</ol>
+<h2>六、替代方案：PowerShell</h2>
+<p>需要更灵活的处理（如跳过已存在用户、写日志），推荐使用 <code>New-ADUser</code>：</p>
+<pre><code class="language-powershell">New-ADUser -Name &quot;John&quot; -SamAccountName &quot;john&quot; -UserPrincipalName &quot;john@contoso.com&quot; `
+  -GivenName &quot;John&quot; -Surname &quot;Doe&quot; -Path &quot;OU=Sales,DC=contoso,DC=com&quot; -Enabled $true `
+  -AccountPassword (ConvertTo-SecureString &quot;P@ssw0rd&quot; -AsPlainText -Force)
+</code></pre>
+<p>配合 CSV 批量创建（CSV 首行为表头）：</p>
+<pre><code class="language-powershell">Import-Csv C:\users.csv | ForEach-Object {
+  New-ADUser -Name $_.Name -SamAccountName $_.Sam -UserPrincipalName &quot;$($_.Name)@wsc39.test&quot; `
+    -Path &quot;OU=$($_.OU),DC=wsc39,DC=test&quot; -Enabled $true `
+    -AccountPassword (ConvertTo-SecureString $_.Password -AsPlainText -Force)
+}
+</code></pre>
+
+<a class="btn" href="/#/p/1652k0x1c1">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

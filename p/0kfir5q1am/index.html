@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分解实验08：路由策略 - 林的笔记</title>
+<meta name="description" content="在 RIP 与 OSPF 的边界路由器 R2 上用 ACL + route-policy 做路由引入，实现引入路由的 cost 设置与路由过滤。">
+<meta name="keywords" content="软考,网络工程师,华为,路由策略,route-policy,RIP,OSPF">
+<link rel="canonical" href="https://0x-z.cn/p/0kfir5q1am/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分解实验08：路由策略">
+<meta property="og:description" content="在 RIP 与 OSPF 的边界路由器 R2 上用 ACL + route-policy 做路由引入，实现引入路由的 cost 设置与路由过滤。">
+<meta property="og:url" content="https://0x-z.cn/p/0kfir5q1am/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"分解实验08：路由策略","description":"在 RIP 与 OSPF 的边界路由器 R2 上用 ACL + route-policy 做路由引入，实现引入路由的 cost 设置与路由过滤。","url":"https://0x-z.cn/p/0kfir5q1am/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-11","dateModified":"2026-10-11","keywords":"软考,网络工程师,华为,路由策略,route-policy,RIP,OSPF"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/0kfir5q1am">在博客中阅读</a></header>
+<article>
+<h1>分解实验08：路由策略</h1>
+<div class="meta"><span>2026-10-11</span><span>Network / Huawei</span><span>#软考</span><span>#网络工程师</span><span>#华为</span><span>#路由策略</span><span>#route-policy</span><span>#RIP</span><span>#OSPF</span></div>
+<p>本实验中 R1 运行 RIPv2、R3 运行 OSPF，R2 在两者之间做双向路由引入，并通过 ACL 配合 route-policy：一是向 R1 通告 R3 的三个环回口时把 cost 设为 10，二是只让 R3 学到 10.1.2.0/24 和 10.1.3.0/24。</p>
+<!-- more -->
+
+<h2>1、实验需求</h2>
+<ol>
+<li>让 R3 可以学到 10.1.2.0/24 和 10.1.3.0/24 路由，不能学到 10.1.1.0/24。</li>
+<li>让 R2 向 R1 通告 R3 的三个环回接口，cost 设置为 10。</li>
+</ol>
+<blockquote>
+<p>注意：原文需求 1 写作「10.1.1.3.0/24」，按拓扑应为 10.1.3.0/24。</p>
+</blockquote>
+<h2>2、网络拓扑</h2>
+<table>
+<thead>
+<tr>
+<th>设备</th>
+<th>接口</th>
+<th>IP/掩码</th>
+<th>路由协议 / 角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>R1</td>
+<td>GE0/0/0</td>
+<td>12.1.1.1/30</td>
+<td>RIPv2</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>LoopBack0</td>
+<td>10.1.1.1/24</td>
+<td>RIPv2</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>LoopBack1</td>
+<td>10.1.2.1/24</td>
+<td>RIPv2</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>LoopBack2</td>
+<td>10.1.3.1/24</td>
+<td>RIPv2</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>GE0/0/0</td>
+<td>12.1.1.2/30</td>
+<td>RIPv2，边界路由器</td>
+</tr>
+<tr>
+<td>R2</td>
+<td>GE0/0/1</td>
+<td>23.1.1.1/30</td>
+<td>OSPF，边界路由器</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>GE0/0/1</td>
+<td>23.1.1.2/30</td>
+<td>OSPF</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>LoopBack0</td>
+<td>30.1.1.1/24</td>
+<td>OSPF</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>LoopBack1</td>
+<td>30.1.2.1/24</td>
+<td>OSPF</td>
+</tr>
+<tr>
+<td>R3</td>
+<td>LoopBack2</td>
+<td>30.1.3.1/24</td>
+<td>OSPF</td>
+</tr>
+</tbody></table>
+<pre><code class="language-text"> Lo0 10.1.1.1/24                                                  Lo0 30.1.1.1/24
+ Lo1 10.1.2.1/24                                                  Lo1 30.1.2.1/24
+ Lo2 10.1.3.1/24                                                  Lo2 30.1.3.1/24
+      R1 GE0/0/0 ---- 12.1.1.0/30 ---- GE0/0/0 R2 GE0/0/1 ---- 23.1.1.0/30 ---- GE0/0/1 R3
+         .1          (RIPv2)               .2      .1           (OSPF)              .2
+</code></pre>
+<h2>3、实验步骤</h2>
+<ol>
+<li>配置 IP 地址</li>
+<li>配置 RIP 和 OSPF</li>
+<li>R2 上配置路由引入和路由策略，进行路由过滤和 cost 设置</li>
+<li>验证测试</li>
+</ol>
+<h2>4、配置过程与命令</h2>
+<h3>Step 1：配置 IP 地址</h3>
+<p>R1 配置 IP 地址：</p>
+<pre><code class="language-text">&lt;Huawei&gt; system-view
+[Huawei] sysname R1
+[R1] int g0/0/0
+[R1-GigabitEthernet0/0/0] ip address 12.1.1.1 30
+[R1] int LoopBack 0 //启用环回接口0，环回口比较稳定，只要不手动shutdown就会一直up，经常用于测试或者OSPF router-id
+[R1-LoopBack0] ip address 10.1.1.1 24
+[R1] int LoopBack 1
+[R1-LoopBack1] ip address 10.1.2.1 24
+[R1-LoopBack1] quit
+[R1] interface LoopBack 2
+[R1-LoopBack2] ip address 10.1.3.1 24
+</code></pre>
+<p>R2 配置 IP 地址：</p>
+<pre><code class="language-text">&lt;Huawei&gt; system-view
+[Huawei] sysname R2
+[R2] int GigabitEthernet0/0/0
+[R2-GigabitEthernet0/0/0] ip address 12.1.1.2 30
+[R2-GigabitEthernet0/0/0] quit
+[R2] int GigabitEthernet0/0/1
+[R2-GigabitEthernet0/0/1] ip add 23.1.1.1 30
+</code></pre>
+<p>R3 配置 IP 地址：</p>
+<pre><code class="language-text">&lt;Huawei&gt; system-view
+[Huawei] sysname R3
+[R3] int g0/0/1
+[R3-GigabitEthernet0/0/1] ip address 23.1.1.2 30
+[R3-GigabitEthernet0/0/1] quit
+[R3] interface LoopBack 0
+[R3-LoopBack0] ip address 30.1.1.1 24
+[R3-LoopBack0] quit
+[R3] interface LoopBack 1
+[R3-LoopBack1] ip address 30.1.2.1 24
+[R3-LoopBack1] quit
+[R3] interface LoopBack 2
+[R3-LoopBack2] ip address 30.1.3.1 24
+</code></pre>
+<h3>Step 2：配置 RIP 和 OSPF</h3>
+<p>R1 配置 RIP 协议：</p>
+<pre><code class="language-text">[R1] rip 1
+[R1-rip-1] version 2
+[R1-rip-1] network 10.0.0.0
+[R1-rip-1] network 12.0.0.0
+</code></pre>
+<p>R2 配置 RIP 和 OSPF：</p>
+<pre><code class="language-text">[R2] rip 1
+[R2-rip-1] version 2
+[R2-rip-1] network 12.0.0.0
+[R2-rip-1] quit
+[R2] ospf 1
+[R2-ospf-1] area 0
+[R2-ospf-1-area-0.0.0.0] network 23.1.1.0 0.0.0.3
+</code></pre>
+<p>R3 配置 OSPF：</p>
+<pre><code class="language-text">[R3] ospf 1
+[R3-ospf-1] area 0
+[R3-ospf-1-area-0.0.0.0] network 23.1.1.0 0.0.0.3
+[R3-ospf-1-area-0.0.0.0] network 30.1.1.0 0.0.0.255
+[R3-ospf-1-area-0.0.0.0] network 30.1.2.0 0.0.0.255
+[R3-ospf-1-area-0.0.0.0] network 30.1.3.0 0.0.0.255
+</code></pre>
+<p>在 R2 上查看路由表，已经通过 RIP 和 OSPF 分别学到 3 条路由。</p>
+<pre><code class="language-text">[R2] display ip routing-table
+Destination/Mask    Proto   Pre  Cost      Flags NextHop         Interface
+       10.1.1.0/24  RIP     100  1           D   12.1.1.1        GigabitEthernet0/0/0
+       10.1.2.0/24  RIP     100  1           D   12.1.1.1        GigabitEthernet0/0/0
+       10.1.3.0/24  RIP     100  1           D   12.1.1.1        GigabitEthernet0/0/0
+       12.1.1.0/30  Direct  0    0           D   12.1.1.2        GigabitEthernet0/0/0
+       12.1.1.2/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/0
+       12.1.1.3/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/0
+       23.1.1.0/30  Direct  0    0           D   23.1.1.1        GigabitEthernet0/0/1
+       23.1.1.1/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/1
+       23.1.1.3/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/1
+       30.1.1.1/32  OSPF    10   1           D   23.1.1.2        GigabitEthernet0/0/1
+       30.1.2.1/32  OSPF    10   1           D   23.1.1.2        GigabitEthernet0/0/1
+       30.1.3.1/32  OSPF    10   1           D   23.1.1.2        GigabitEthernet0/0/1
+</code></pre>
+<h3>Step 3：R2 上配置路由引入和路由策略，进行路由 cost 设置</h3>
+<pre><code class="language-text">[R2] acl 2000
+[R2-acl-basic-2000] rule 10 permit source 30.1.1.0 0.0.0.255
+[R2-acl-basic-2000] rule 20 permit source 30.1.2.0 0.0.0.255
+[R2-acl-basic-2000] rule 30 permit source 30.1.3.0 0.0.0.255
+[R2] route-policy 10 permit node 10
+Info: New Sequence of this List.
+[R2-route-policy] if-match acl 2000
+[R2-route-policy] apply cost 10
+[R2] rip 1
+[R2-rip-1] version 2
+[R2-rip-1] import-route ospf 1 route-policy 10
+</code></pre>
+<p>R1 上查看从 R2 学到的 RIP 路由，开销是 11，即 R2 对外发布开销是 10，加上 R2 本身算 1 跳，最后开销就是 11，达到实验预期效果。</p>
+<pre><code class="language-text">[R1] display ip routing-table
+Destination/Mask    Proto   Pre  Cost      Flags NextHop         Interface
+       10.1.1.0/24  Direct  0    0           D   10.1.1.1        LoopBack0
+       10.1.1.1/32  Direct  0    0           D   127.0.0.1       LoopBack0
+     10.1.1.255/32  Direct  0    0           D   127.0.0.1       LoopBack0
+       10.1.2.0/24  Direct  0    0           D   10.1.2.1        LoopBack1
+       10.1.2.1/32  Direct  0    0           D   127.0.0.1       LoopBack1
+     10.1.2.255/32  Direct  0    0           D   127.0.0.1       LoopBack1
+       10.1.3.0/24  Direct  0    0           D   10.1.3.1        LoopBack2
+       10.1.3.1/32  Direct  0    0           D   127.0.0.1       LoopBack2
+     10.1.3.255/32  Direct  0    0           D   127.0.0.1       LoopBack2
+       12.1.1.0/30  Direct  0    0           D   12.1.1.1        GigabitEthernet0/0/0
+       12.1.1.1/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/0
+       12.1.1.3/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/0
+       30.1.1.1/32  RIP     100  11          D   12.1.1.2        GigabitEthernet0/0/0
+       30.1.2.1/32  RIP     100  11          D   12.1.1.2        GigabitEthernet0/0/0
+       30.1.3.1/32  RIP     100  11          D   12.1.1.2        GigabitEthernet0/0/0
+      127.0.0.0/8   Direct  0    0           D   127.0.0.1       InLoopBack0
+      127.0.0.1/32  Direct  0    0           D   127.0.0.1       InLoopBack0
+127.255.255.255/32  Direct  0    0           D   127.0.0.1       InLoopBack0
+255.255.255.255/32  Direct  0    0           D   127.0.0.1       InLoopBack0
+</code></pre>
+<h3>Step 4：R2 上配置路由引入和路由策略，进行路由过滤</h3>
+<pre><code class="language-text">[R2] acl 2001
+[R2-acl-basic-2001] rule 10 permit source 10.1.2.0 0.0.0.255
+[R2-acl-basic-2001] rule 20 permit source 10.1.3.0 0.0.0.255
+[R2-acl-basic-2001] quit
+[R2] route-policy 20 permit node 20
+Info: New Sequence of this List.
+[R2-route-policy] if-match acl 2001
+[R2] ospf 1
+[R2-ospf-1] import-route rip route-policy 20
+</code></pre>
+<p>R3 上查看路由学习情况，通过路由策略过滤，R3 只学到了 10.1.2.0/24 和 10.1.3.0/24，没有学到 10.1.1.0/24，实验成功！</p>
+<pre><code class="language-text">[R3] display ip routing-table
+Destination/Mask    Proto   Pre  Cost      Flags NextHop         Interface
+       10.1.2.0/24  O_ASE   150  1           D   23.1.1.1        GigabitEthernet0/0/1
+       10.1.3.0/24  O_ASE   150  1           D   23.1.1.1        GigabitEthernet0/0/1
+       23.1.1.0/30  Direct  0    0           D   23.1.1.2        GigabitEthernet0/0/1
+       23.1.1.2/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/1
+       23.1.1.3/32  Direct  0    0           D   127.0.0.1       GigabitEthernet0/0/1
+       30.1.1.0/24  Direct  0    0           D   30.1.1.1        LoopBack0
+       30.1.1.1/32  Direct  0    0           D   127.0.0.1       LoopBack0
+     30.1.1.255/32  Direct  0    0           D   127.0.0.1       LoopBack0
+       30.1.2.0/24  Direct  0    0           D   30.1.2.1        LoopBack1
+       30.1.2.1/32  Direct  0    0           D   127.0.0.1       LoopBack1
+     30.1.2.255/32  Direct  0    0           D   127.0.0.1       LoopBack1
+       30.1.3.0/24  Direct  0    0           D   30.1.3.1        LoopBack2
+       30.1.3.1/32  Direct  0    0           D   127.0.0.1       LoopBack2
+     30.1.3.255/32  Direct  0    0           D   127.0.0.1       LoopBack2
+</code></pre>
+
+<a class="btn" href="/#/p/0kfir5q1am">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

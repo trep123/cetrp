@@ -1,0 +1,1681 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linux 学习笔记（08）：Bash 与管道命令 - 林的笔记</title>
+<meta name="description" content="Linux 学习笔记 · Bash 与管道命令，内容整理自截图笔记。">
+<meta name="keywords" content="Linux,Bash,管道">
+<link rel="canonical" href="https://0x-z.cn/p/0t7dgds0ag/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux 学习笔记（08）：Bash 与管道命令">
+<meta property="og:description" content="Linux 学习笔记 · Bash 与管道命令，内容整理自截图笔记。">
+<meta property="og:url" content="https://0x-z.cn/p/0t7dgds0ag/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（08）：Bash 与管道命令","description":"Linux 学习笔记 · Bash 与管道命令，内容整理自截图笔记。","url":"https://0x-z.cn/p/0t7dgds0ag/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,Bash,管道"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/0t7dgds0ag">在博客中阅读</a></header>
+<article>
+<h1>Linux 学习笔记（08）：Bash 与管道命令</h1>
+<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span><span>#Linux</span><span>#Bash</span><span>#管道</span></div>
+<h2>bash shell功能</h2>
+<p>这么多的指令记录在哪里呢？在你的家目录内的 .bash_history 啦！不过，需要留意的是，~/.bash_history 记录的是前一次登入以前所执行过的指令，而至于这一次登入所执行的指令都被暂存在内存中，当你成功的注销系统后，该指令记忆才会记录到 .bash_history 当中！</p>
+<p>那我怎么知道这个指令是来自于外部指令(指的是其他非 bash 所提供的指令) 或是内建在 bash 当中的呢？嘿嘿！利用 type 这个指令来观察即可！举例来说：</p>
+<pre><code class="language-bash">[root@www ~]# type [-tpa] name
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li>不加任何选项与参数时，type 会显示出 name 是外部指令还是 bash 内建指令</li>
+<li><code>-t</code>：当加入 -t 参数时，type 会将 name 以底下这些字眼显示出他的意义：<ul>
+<li>file：表示为外部指令；</li>
+<li>alias：表示该指令为命令别名所设定的名称；</li>
+<li>builtin：表示该指令为 bash 内建的指令功能；</li>
+</ul>
+</li>
+<li><code>-p</code>：如果后面接的 name 为外部指令时，才会显示完整文件名；</li>
+<li><code>-a</code>：会由 PATH 变量定义的路径中，将所有含 name 的指令都列出来，包含 alias</li>
+</ul>
+<p><strong>范例一：查询一下 ls 这个指令是否为 bash 内建？</strong></p>
+<pre><code class="language-bash">[root@www ~]# type ls
+ls is aliased to `ls --color=tty&#39; &lt;==未加任何参数，列出 ls 的最主要使用情况
+[root@www ~]# type -t ls
+alias                    &lt;==仅列出 ls 执行时的依据
+[root@www ~]# type -a ls
+ls is aliased to `ls --color=tty&#39; &lt;==最先使用 aliase
+ls is /bin/ls                 &lt;==还有找到外部指令在 /bin/ls
+</code></pre>
+<p><strong>范例二：那么 cd 呢？</strong></p>
+<pre><code class="language-bash">[root@www ~]# type cd
+cd is a shell builtin          &lt;==看到了吗？ cd 是 shell 内建指令
+</code></pre>
+<p>五章再去回忆一下！这里不重复说明了。鸟哥这里仅就反斜杠 () 来说明一下指令下达的方式喔！</p>
+<p><strong>范例：如果指令串太长的话，如何使用两行来输出？</strong></p>
+<pre><code class="language-bash">[vbird@www ~]# cp /var/spool/mail/root /etc/crontab \
+&gt; /etc/fstab /root
+</code></pre>
+<ul>
+<li>变数的取用: echo</li>
+</ul>
+<pre><code class="language-bash">[root@www ~]# echo $variable
+[root@www ~]# echo $PATH
+/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin
+[root@www ~]# echo ${PATH}
+</code></pre>
+<p><strong>例题：</strong></p>
+<p>请在屏幕上面显示出您的环境变量 HOME 与 MAIL：</p>
+<p><strong>答：</strong></p>
+<pre><code class="language-bash">echo $HOME 或者是 echo ${HOME}
+echo $MAIL 或者是 echo ${MAIL}
+</code></pre>
+<pre><code class="language-bash">[root@www ~]# echo $myname
+     &lt;==这里并没有任何数据～因为这个变量尚未被设定！是空的！
+[root@www ~]# myname=VBird
+[root@www ~]# echo $myname
+VBird  &lt;==出现了！因为这个变量已经被设定了！
+</code></pre>
+<ul>
+<li>变量的设定规则</li>
+</ul>
+<ol>
+<li>变量与变量内容以一个等号『=』来连结，如下所示：
+『myname=VBird』</li>
+<li>等号两边不能直接接空格符，如下所示为错误：
+『myname = VBird』或『myname=VBird Tsai』</li>
+<li>变量名称只能是英文字母与数字，但是开头字符不能是数字，如下为错误：
+『2myname=VBird』</li>
+<li>变量内容若有空格符可使用双引号『&quot;』或单引号『&#39;』将变量内容结合起来，但<ul>
+<li>双引号内的特殊字符如 $ 等，可以保有原本的特性，如下所示：
+『var=&quot;lang is $LANG&quot;』则『echo $var』可得『lang is en_US』</li>
+<li>单引号内的特殊字符则仅为一般字符 (纯文本)，如下所示：
+『var=&#39;lang is $LANG&#39;』则『echo $var』可得『lang is $LANG』</li>
+</ul>
+</li>
+<li>可用跳脱字符『 \ 』将特殊符号(如 [Enter], $, , 空格符, &#39;等)变成一般字符；</li>
+<li>在一串指令中，还需要藉由其他的指令提供的信息，可以使用反单引号『`指令`』或『$(指令)』。特别注意，那个 ` 是键盘上方的数字键 1 左边那个按键，而不是单引号！例如想要取得核心版本的设定：
+『version=$(uname -r)』再『echo $version』可得『2.6.18-128.el5』</li>
+<li>若该变量为扩增变量内容时，则可用 &quot;$变量名称&quot; 或 ${变量} 累加内容，如下所示：
+『PATH=&quot;$PATH&quot;:/home/bin』</li>
+<li>若该变量需要在其他子程序执行，则需要以 export 来使变量变成环境变量：
+『export PATH』</li>
+<li>通常大写字符为系统默认变量，自行设定变量可以使用小写字符，方便判断 (纯粹依照使用者兴趣与嗜好)；</li>
+<li>取消变量的方法为使用 unset ：『unset 变量名称』例如取消 myname 的设定：
+『unset myname』</li>
+</ol>
+<pre><code class="language-bash">[root@www ~]# name=VBird\&#39;s\ name     &lt;==OK 的啦！
+# 利用反斜杠 (\) 跳脱特殊字符，例如单引号与空格键，这也是 OK 的啦！
+</code></pre>
+<p><strong>范例三：我要在 PATH 这个变量当中『累加』:/home/dmtsai/bin 这个目录</strong></p>
+<pre><code class="language-bash">[root@www ~]# PATH=$PATH:/home/dmtsai/bin
+[root@www ~]# PATH=&quot;$PATH&quot;:/home/dmtsai/bin
+[root@www ~]# PATH=${PATH}:/home/dmtsai/bin
+# 上面这三种格式在 PATH 里头的设定都是 OK 的！但是底下的例子就不见得
+</code></pre>
+<p><strong>范例五：如何让我刚刚设定的 name=VBird 可以用在下个 shell 的程序？</strong></p>
+<pre><code class="language-bash">[root@www ~]# name=VBird
+[root@www ~]# bash        &lt;==进入到所谓的子程序
+[root@www ~]# echo $name  &lt;==子程序：再次的 echo 一下；
+      &lt;==嘿嘿！并没有刚刚设定的内容喔！
+[root@www ~]# exit        &lt;==子程序：离开这个子程序
+[root@www ~]# export name
+[root@www ~]# bash        &lt;==进入到所谓的子程序
+[root@www ~]# echo $name  &lt;==子程序：在此执行！
+VBird  &lt;==看吧！出现设定值了！
+[root@www ~]# exit        &lt;==子程序：离开这个子程序
+</code></pre>
+<p><strong>范例六：如何进入到您目前核心的模块目录？</strong></p>
+<pre><code class="language-bash">[root@www ~]# cd /lib/modules/`uname -r`/kernel
+[root@www ~]# cd /lib/modules/$(uname -r)/kernel
+</code></pre>
+<p>其实上面的指令可以说是作了两次动作，亦即是：</p>
+<ol>
+<li>先进行反单引号内的动作『uname -r』并得到核心版本为 2.6.18-128.el5</li>
+<li>将上述的结果带入原指令，故得指令为：『cd /lib/modules/2.6.18-128.el5/kernel/』</li>
+</ol>
+<p><strong>范例七：取消刚刚设定的 name 这个变量内容</strong></p>
+<pre><code class="language-bash">[root@www ~]# unset name
+</code></pre>
+<p><strong>例题：</strong></p>
+<p>在指令下达的过程中，反单引号( ` )这个符号代表的意义为何？</p>
+<p><strong>答：</strong></p>
+<p>在一串指令中，在 ` 之内的指令将会被先执行，而其执行出来的结果将做为外部的输入信息！例如 uname -r 会显示出目前的核心版本，而我们的核心版本在 /lib/modules 里面，因此，你可以先执行 uname -r 找出核心版本，然后再以『 cd 目录』到该目录下，当然也可以执行如同上面范例六的执行内容啰。</p>
+<p>另外再举个例子，我们也知道，locate 指令可以列出所有的相关档案档名，但是，如果我想要知道各个档案的权限呢？举例来说，我想要知道每个 crontab 相关档名的权限：</p>
+<pre><code class="language-bash">[root@www ~]# ls -l `locate crontab`
+</code></pre>
+<p>如此一来，先以 locate 将文件名数据都列出来，再以 ls 指令来处理的意思啦！瞭了吗？ ^_^</p>
+<ul>
+<li><code>\d</code>：可显示出『星期 月 日』的日期格式，如：&quot;Mon Feb 2&quot;</li>
+<li><code>\H</code>：完整的主机名。举例来说，鸟哥的练习机为『<a href="http://www.vbird.tsai%E3%80%8F">www.vbird.tsai』</a></li>
+<li><code>\h</code>：仅取主机名在第一个小数点之前的名字，如鸟哥主机则为『www』后面省略</li>
+<li><code>\t</code>：显示时间，为 24 小时格式的『HH:MM:SS』</li>
+<li><code>\T</code>：显示时间，为 12 小时格式的『HH:MM:SS』</li>
+<li><code>\A</code>：显示时间，为 24 小时格式的『HH:MM』</li>
+<li><code>\@</code>：显示时间，为 12 小时格式的『am/pm』样式</li>
+<li><code>\u</code>：目前使用者的账号名称，如『root』；</li>
+<li><code>\v</code>：BASH 的版本信息，如鸟哥的测试主板本为 3.2.25(1)，仅取『3.2』显示</li>
+<li><code>\w</code>：完整的工作目录名称，由根目录写起的目录名称。但家目录会以 ~ 取代；</li>
+<li><code>\W</code>：利用 basename 函数取得工作目录名称，所以仅会列出最后一个目录名。</li>
+<li><code>\#</code>：下达的第几个指令。</li>
+<li><code>\$</code>：提示字符，如果是 root 时，提示字符为 #，否则就是 $ 啰～</li>
+</ul>
+<p>?：(关于上个执行指令的回传值)</p>
+<p>虾密？问号也是一个特殊的变数？没错！在 bash 里面这个变量可重要的很！这个变数是：『上一个执行的指令所回传的值』，上面这句话的重点是『上一个指令』与『回传值』两个地方。当我们执行某些指令时，这些指令都会回传一个执行后的代码。一般来说，如果成功的执行该指令，则会回传一个 0 值，如果执行过程发生错误，就会回传『错误代码』才对！一般就是以非为 0 的数值来取代。我们以底下的例子来看看：</p>
+<pre><code class="language-bash">[root@www ~]# echo $SHELL
+/bin/bash                          &lt;==可顺利显示！没有错误！
+[root@www ~]# echo $?
+0                                  &lt;==因为没问题，所以回传值为 0
+[root@www ~]# 12name=VBird
+-bash: 12name=VBird: command not found     &lt;==发生错误了！bash 回报有问题
+[root@www ~]# echo $?
+127                                &lt;==因为有问题，回传错误代码(非为 0)
+# 错误代码回传值依据软件而有不同，我们可以利用这个代码来搜寻错误的原因喔！
+[root@www ~]# echo $?
+0
+# 咦！怎么又变成正确了？这是因为 &quot;?&quot; 只与『上一个执行指令』有关，
+# 所以，我们上一个指令是执行『 echo $? 』，当然没有错误，所以是 0 没错！
+</code></pre>
+<h3>变量的有效范围</h3>
+<p>虾密？变量也有使用的『范围』？没错啊～我们在上头的 export 指令说明中，就提到了这个概念了。如果在跑程序的时候，有父程序与子程序的不同程序关系时，则『变量』可否被引用与 export 有关。被 export 后的变量，我们可以称他为『环境变量』！环境变量可以被子程序所引用，但是其他的自定义变量内容就不会存在于子程序中。</p>
+<h3>变量键盘读取、数组与宣告： read, array, declare</h3>
+<p>我们上面提到的变量设定功能，都是由指令列直接设定的，那么，可不可以让用户能够经由键盘输入？什么意思呢？是否记得某些程序执行的过程当中，会等待使用者输入 &quot;yes/no&quot; 之类的讯息啊？在 bash 里面也有相对应的功能喔！此外，我们还可以宣告这个变量的属性，例如：数组或者是数字等等的。底下就来看看吧！</p>
+<pre><code class="language-bash">[root@www ~]# read [-pt] variable
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-p</code>：后面可以接提示字符！</li>
+<li><code>-t</code>：后面可以接等待的『秒数！』这个比较有趣～不会一直等待使用者啦！</li>
+</ul>
+<p><strong>范例一：让用户由键盘输入一内容，将该内容变成名为 atest 的变量</strong></p>
+<pre><code class="language-bash">[root@www ~]# read atest
+This is a test        &lt;==此时光标会等待你输入！请输入左侧文字看看
+[root@www ~]# echo $atest
+This is a test          &lt;==你刚刚输入的数据已经变成一个变量内容！
+</code></pre>
+<p><strong>范例二：提示使用者 30 秒内输入自己的大名，将该输入字符串作为名为 named 的变量内容</strong></p>
+<pre><code class="language-bash">[root@www ~]# read -p &quot;Please keyin your name: &quot; -t 30 named
+Please keyin your name: VBird Tsai   &lt;==注意看，会有提示字符喔！
+[root@www ~]# echo $named
+VBird Tsai        &lt;==输入的数据又变成一个变量的内容了！
+</code></pre>
+<ul>
+<li>declare / typeset</li>
+</ul>
+<p>declare 或 typeset 是一样的功能，就是在『宣告变量的类型』。如果使用 declare 后面并没有接任何参数，那么 bash 就会主动的将所有的变量名称与内容通通叫出来，就好像使用 set 一样啦！那么 declare 还有什么语法呢？看看先：</p>
+<pre><code class="language-bash">[root@www ~]# declare [-aixr] variable
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-a</code>：将后面名为 variable 的变量定义成为数组 (array) 类型</li>
+<li><code>-i</code>：将后面名为 variable 的变量定义成为整数数字 (integer) 类型</li>
+<li><code>-x</code>：用法与 export 一样，就是将后面的 variable 变成环境变量；</li>
+<li><code>-r</code>：将变量设定成为 readonly 类型，该变量不可被更改内容，也不能 unset</li>
+</ul>
+<p><strong>范例一：让变量 sum 进行 100+300+50 的加总结果</strong></p>
+<pre><code class="language-bash">[root@www ~]# sum=100+300+50
+[root@www ~]# echo $sum
+100+300+50  &lt;==咦！怎么没有帮我计算加总？因为这是文字型态的变量属性啊！
+[root@www ~]# declare -i sum=100+300+50
+[root@www ~]# echo $sum
+450         &lt;==瞭乎？？
+</code></pre>
+<p>由于在默认的情况底下，bash 对于变量有几个基本的定义：</p>
+<ul>
+<li>变量类型默认为『字符串』，所以若不指定变量类型，则 1+2 为一个『字符串』而不是『计算式』。所以上述第一个执行的结果才会出现那个情况的；</li>
+<li>bash 环境中的数值运算，预设最多仅能到达整数形态，所以 1/3 结果是 0；</li>
+</ul>
+<p>现在你晓得为啥你需要进行变量宣告了吧？如果需要非字符串类型的变量，那就得要进行变量的宣告才行啦！底下继续来玩些其他的 declare 功能。</p>
+<p><strong>范例二：将 sum 变成环境变量</strong></p>
+<pre><code class="language-bash">[root@www ~]# declare -x sum
+[root@www ~]# export | grep sum
+declare -ix sum=&quot;450&quot;  &lt;==果然出现了！包括有 i 与 x 的宣告！
+</code></pre>
+<p><strong>范例三：让 sum 变成只读属性，不可更动！</strong></p>
+<pre><code class="language-bash">[root@www ~]# declare -r sum
+[root@www ~]# sum=tesgting
+-bash: sum: readonly variable  &lt;==老天爷～不能改这个变数了！
+</code></pre>
+<p><strong>范例四：让 sum 变成非环境变量的自定义变量吧！</strong></p>
+<pre><code class="language-bash">[root@www ~]# declare +x sum  &lt;== 将 - 变成 + 可以进行『取消』动作
+[root@www ~]# declare -p sum  &lt;== -p 可以单独列出变量的类型
+declare -ir sum=&quot;450&quot; &lt;== 看吧！只剩下 i, r 的类型，不具有 x 啰！
+</code></pre>
+<p>bash 里头，数组的设定方式是：</p>
+<pre><code class="language-bash">var[index]=content
+</code></pre>
+<p>意思是说，我有一个数组名为 var，而这个数组的内容为 var[1]=小明，var[2]=大明，var[3]=好明 .... 等等，那个 index 就是一些数字啦，重点是用中刮号 ([ ]) 来设定的。目前我们 bash 提供的是一维数</p>
+<p><strong>范例：设定上面提到的 var[1] ～ var[3] 的变数。</strong></p>
+<pre><code class="language-bash">[root@www ~]# var[1]=&quot;small min&quot;
+[root@www ~]# var[2]=&quot;big min&quot;
+[root@www ~]# var[3]=&quot;nice min&quot;
+[root@www ~]# echo &quot;${var[1]}, ${var[2]}, ${var[3]}&quot;
+small min, big min, nice min
+</code></pre>
+<p>数组的变量类型比较有趣的地方在于『读取』，一般来说，建议直接以 ${数组} 的方式来读取，比较正确无误的啦！</p>
+<h3>与文件系统及程序的限制关系： ulimit</h3>
+<p>想象一个状况：我的 Linux 主机里面同时登入了十个人，这十个人不知怎么搞的，同时开启了 100 个档案，每个档案的大小约 10MBytes，请问一下，我的 Linux 主机的内存要有多大才够？ 10*100*10 = 10000 MBytes = 10GBytes ... 老天爷，这样，系统不挂点才有鬼哩！为了要预防这个情况的发生，所以我们的 bash 是可以『限制用户的某些系统资源』的，包括可以开启的档案数量，可以使用的 CPU 时间，可以使用的内存总量等等。如何设定？用 ulimit 吧！</p>
+<pre><code class="language-bash">[root@www ~]# ulimit [-SHacdfltu] [配额]
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-H</code>：hard limit，严格的设定，必定不能超过这个设定的数值；</li>
+<li><code>-S</code>：soft limit，警告的设定，可以超过这个设定值，但是若超过则有警告讯息。在设定上，通常 soft 会比 hard 小，举例来说，soft 可设定为 80 而 hard 设定为 100，那么你可以使用到 90 (因为没有超过 100)，但介于 80~100 之间时，系统会有警告讯息通知你！</li>
+<li><code>-a</code>：后面不接任何选项与参数，可列出所有的限制额度；</li>
+<li><code>-c</code>：当某些程序发生错误时，系统可能会将该程序在内存中的信息写成档案(除错用)，这种档案就被称为核心档案(core file)。此为限制每个核心档案的最大容量。</li>
+<li><code>-f</code>：此 shell 可以建立的最大档案容量(一般可能设定为 2GB)单位为 Kbytes</li>
+<li><code>-d</code>：程序可使用的最大断裂内存(segment)容量；</li>
+<li><code>-l</code>：可用于锁定 (lock) 的内存量</li>
+<li><code>-t</code>：可使用的最大 CPU 时间 (单位为秒)</li>
+<li><code>-u</code>：单一用户可以使用的最大程序(process)数量。</li>
+</ul>
+<p><strong>范例二：限制用户仅能建立 10MBytes 以下的容量的档案</strong></p>
+<pre><code class="language-bash">[root@www ~]# ulimit -f 10240
+[root@www ~]# ulimit -a
+file size              (blocks, -f) 10240 &lt;==最大量为 10240Kbyes，相当 10Mbytes
+[root@www ~]# dd if=/dev/zero of=123 bs=1M count=20
+File size limit exceeded &lt;==尝试建立 20MB 的档案，结果失败了！
+</code></pre>
+<p><strong>Tips:</strong></p>
+<p>想要复原 ulimit 的设定最简单的方法就是注销再登入，否则就是得要重新以 ulimit 设定才行！不过，要注意的是，一般身份使用者如果以 ulimit 设定了 -f 的档案大小，那么他『只能继续减小档案容量，不能增加档案容量喔！』另外，若想要管控使用者的 ulimit 限值，可以参考第十四章的 pam 的介绍。</p>
+<ul>
+<li>变量内容的删除与取代</li>
+</ul>
+<p>变量的内容可以很简单的透过几个咚咚来进行删除喔！我们使用 PATH 这个变量的内容来做测试好了。请你依序进行底下的几个例子来玩玩，比较容易感受的到鸟哥在这里想要表达的意义：</p>
+<p><strong>范例一：先让小写的 path 自定义变量设定的与 PATH 内容相同</strong></p>
+<pre><code class="language-bash">[root@www ~]# path=${PATH}
+[root@www ~]# echo $path
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+/usr/sbin:/usr/bin:/root/bin  &lt;==这两行其实是同一行啦！
+</code></pre>
+<p><strong>范例二：假设我不喜欢 kerberos，所以要将前两个目录删除掉，如何显示？</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo ${path#/*kerberos/bin:}
+/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin
+</code></pre>
+<pre><code class="language-text">${variable#/*kerberos/bin:}
+   上面的特殊字体部分是关键词！用在这种删除模式所必须存在的
+
+${variable#/*kerberos/bin:}
+   这就是原本的变量名称，以上面范例二来说，这里就填写 path 这个『变量名称』啦！
+
+${variable#/*kerberos/bin:}
+   这是重点！代表『从变量内容的最前面开始向右删除』，且仅删除最短的那个
+
+${variable#/*kerberos/bin:}
+   代表要被删除的部分，由于 # 代表由前面开始删除，所以这里便由开始的 / 写起。
+   需要注意的是，我们还可以透过通配符 * 来取代 0 到无穷多个任意字符
+
+   以上面范例二的结果来看，path 这个变量被删除的内容如下所示：
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+/usr/sbin:/usr/bin:/root/bin  &lt;==这两行其实是同一行啦！
+</code></pre>
+<p><strong>范例三：我想要删除前面所有的目录，仅保留最后一个目录</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo ${path#/*:}
+/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:
+/root/bin     &lt;==这两行其实是同一行啦！
+# 由于一个 # 仅删除掉最短的那个，因此他删除的情况可以用底下的删除线来看：
+#
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+# /usr/sbin:/usr/bin:/root/bin  &lt;==这两行其实是同一行啦！
+
+[root@www ~]# echo ${path##/*:}
+/root/bin
+# 嘿！多加了一个 # 变成 ## 之后，他变成『删除掉最长的那个数据』！亦即是：
+#
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+# /usr/sbin:/usr/bin:/root/bin  &lt;==这两行其实是同一行啦！
+</code></pre>
+<p>非常有趣！不是吗？因为在 PATH 这个变量的内容中，每个目录都是以冒号『:』隔开的，所以要从头删除掉目录就是介于斜线 (/) 到冒号 (:) 之间的数据！但是 PATH 中不止一个冒号 (:) 啊！所以 # 与 ## 就分别代表：</p>
+<ul>
+<li><code>#</code>：符合取代文字的『最短的』那一个；</li>
+<li><code>##</code>：符合取代文字的『最长的』那一个</li>
+</ul>
+<p>上面谈到的是『从前面开始删除变量内容』，那么如果想要『从后面向前删除变量内容』呢？这个时候就得使用百分比 (%) 符号了！来看看范例四怎么做吧！</p>
+<p><strong>范例四：我想要删除最后面那个目录，亦即从 : 到 bin 为止的字符串</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo ${path%:*bin}
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+/usr/sbin:/usr/bin  &lt;==注意啊！最后面一个目录不见去！
+# 这个 % 符号代表由最后面开始向前删除！所以上面得到的结果其实是来自如下：
+#
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+# /usr/sbin:/usr/bin:/root/bin  &lt;==这两行其实是同一行啦！
+</code></pre>
+<p><strong>范例五：那如果我只想要保留第一个目录呢？</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo ${path%%:*bin}
+/usr/kerberos/sbin
+# 同样的，%% 代表的则是最长的符合字符串，所以结果其实是来自如下：
+#
+/usr/kerberos/sbin:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+# /usr/sbin:/usr/bin:/root/bin  &lt;==这两行其实是同一行啦！
+</code></pre>
+<p><strong>例题：</strong></p>
+<p>假设你是 root，那你的 MAIL 变量应该是 /var/spool/mail/root。假设你只想要保留最后面那个档名 (root)，前面的目录名称都不要了，如何利用 $MAIL 变量来达成？</p>
+<p><strong>答：</strong></p>
+<p>题意其实是这样『/var/spool/mail/root』，亦即删除掉两条斜线间的所有数据(最长符合)。这个时候你就可以这样做即可：</p>
+<pre><code class="language-bash">[root@www ~]# echo ${MAIL##/*/}
+</code></pre>
+<p>相反的，如果你只想要拿掉文件名，保留目录的名称，亦即是『/var/spool/mail/root』(最短符合)。但假设你并不知道结尾的字母为何，此时你可以利用通配符来处理即可，如下所示：</p>
+<pre><code class="language-bash">[root@www ~]# echo ${MAIL%/*}
+</code></pre>
+<p>了解了删除功能后，接下来谈谈取代吧！继续玩玩范例六啰！</p>
+<p><strong>范例六：将 path 的变量内容内的 sbin 取代成大写 SBIN：</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo ${path/sbin/SBIN}
+/usr/kerberos/SBIN:/usr/kerberos/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:
+/usr/sbin:/usr/bin:/root/bin
+# 这个部分就容易理解的多了！关键词在于那两个斜线，两斜线中间的是旧字符串
+# 后面的是新字符串，所以结果就会出现如上述的特殊字体部分啰！
+
+[root@www ~]# echo ${path//sbin/SBIN}
+/usr/kerberos/SBIN:/usr/kerberos/bin:/usr/local/SBIN:/usr/local/bin:/SBIN:/bin:
+/usr/SBIN:/usr/bin:/root/bin
+# 如果是两条斜线，那么就变成所有符合的内容都会被取代喔！
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>变量设定方式</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>${变量#关键词}</code></td>
+<td>若变量内容从头开始的数据符合『关键词』，则将符合的最短数据删除</td>
+</tr>
+<tr>
+<td><code>${变量##关键词}</code></td>
+<td>若变量内容从头开始的数据符合『关键词』，则将符合的最长数据删除</td>
+</tr>
+<tr>
+<td><code>${变量%关键词}</code></td>
+<td>若变量内容从尾向前的数据符合『关键词』，则将符合的最短数据删除</td>
+</tr>
+<tr>
+<td><code>${变量%%关键词}</code></td>
+<td>若变量内容从尾向前的数据符合『关键词』，则将符合的最长数据删除</td>
+</tr>
+<tr>
+<td><code>${变量/旧字符串/新字符串}</code></td>
+<td>若变量内容符合『旧字符串』则『第一个旧字符串会被新字符串取代』</td>
+</tr>
+<tr>
+<td><code>${变量//旧字符串/新字符串}</code></td>
+<td>若变量内容符合『旧字符串』则『全部的旧字符串会被新字符串取代』</td>
+</tr>
+</tbody></table>
+<ul>
+<li>变量的测试与内容替换</li>
+</ul>
+<p>在某些时刻我们常常需要『判断』某个变量是否存在，若变量存在则使用既有的设定，若变量不存在则给予一个常用的设定。我们举底下的例子来说明好了，看看能不能较容易被你所理解呢！</p>
+<p><strong>范例一：测试一下是否存在 username 这个变量，若不存在则给予 username 内容为 root</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo $username
+        &lt;==由于出现空白，所以 username 可能不存在，也可能是空字符串
+[root@www ~]# username=${username-root}
+[root@www ~]# echo $username
+root      &lt;==因为 username 没有设定，所以主动给予名为 root 的内容。
+[root@www ~]# username=&quot;vbird tsai&quot; &lt;==主动设定 username 的内容
+[root@www ~]# username=${username-root}
+[root@www ~]# echo $username
+vbird tsai &lt;==因为 username 已经设定了，所以使用旧有的设定而不以 root 取代
+</code></pre>
+<p>不过这还是有点问题！因为 username 可能已经被设定为『空字符串』了！果真如此的话，那你还可以使用底下的范例来给予 username 的内容成为 root 喔！</p>
+<p><strong>范例二：若 username 未设定或为空字符串，则将 username 内容设定为 root</strong></p>
+<pre><code class="language-bash">[root@www ~]# username=&quot;&quot;
+[root@www ~]# username=${username-root}
+[root@www ~]# echo $username
+     &lt;==因为 username 被设定为空字符串了！所以当然还是保留为空字符串！
+[root@www ~]# username=${username:-root}
+[root@www ~]# echo $username
+root  &lt;==加上『 : 』后若变量内容为空或者是未设定，都能够以后面的内容替换！
+</code></pre>
+<p><strong>Tips:</strong></p>
+<p>底下的例子当中，那个 var 与 str 为变量，我们想要针对 str 是否有设定来决定 var 的值喔！一般来说，str: 代表『str 没设定或为空的字符串时』；至于 str 则仅为『没有该变数』。</p>
+<table>
+<thead>
+<tr>
+<th>变量设定方式</th>
+<th>str 没有设定</th>
+<th>str 为空字符串</th>
+<th>str 已设定非为空字符串</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>var=${str-expr}</code></td>
+<td>var=expr</td>
+<td>var=</td>
+<td>var=$str</td>
+</tr>
+<tr>
+<td><code>var=${str:-expr}</code></td>
+<td>var=expr</td>
+<td>var=expr</td>
+<td>var=$str</td>
+</tr>
+<tr>
+<td><code>var=${str+expr}</code></td>
+<td>var=</td>
+<td>var=expr</td>
+<td>var=expr</td>
+</tr>
+<tr>
+<td><code>var=${str:+expr}</code></td>
+<td>var=</td>
+<td>var=</td>
+<td>var=expr</td>
+</tr>
+<tr>
+<td><code>var=${str=expr}</code></td>
+<td>str=expr<br>var=expr</td>
+<td>str 不变<br>var=</td>
+<td>str 不变<br>var=$str</td>
+</tr>
+<tr>
+<td><code>var=${str:=expr}</code></td>
+<td>str=expr<br>var=expr</td>
+<td>str=expr<br>var=expr</td>
+<td>str 不变<br>var=$str</td>
+</tr>
+<tr>
+<td><code>var=${str?expr}</code></td>
+<td>expr 输出至 stderr</td>
+<td>var=</td>
+<td>var=$str</td>
+</tr>
+<tr>
+<td><code>var=${str:?expr}</code></td>
+<td>expr 输出至 stderr</td>
+<td>expr 输出至 stderr</td>
+<td>var=$str</td>
+</tr>
+</tbody></table>
+<p>根据上面这张表，我们来进行几个范例的练习吧！ ^_^！首先让我们来测试一下，如果旧变量 (str) 不存在时，我们要给予新变量一个内容，若旧变量存在则新变量内容以旧变量来替换，结果如下：</p>
+<pre><code class="language-bash">测试：先假设 str 不存在 (用 unset)，然后测试一下等号 (-) 的用法：
+[root@www ~]# unset str; var=${str-newvar}
+[root@www ~]# echo var=&quot;$var&quot;, str=&quot;$str&quot;
+var=newvar, str=        &lt;==因为 str 不存在，所以 var 为 newvar
+
+测试：若 str 已存在，测试一下 var 会变怎样？：
+[root@www ~]# str=&quot;oldvar&quot;; var=${str-newvar}
+[root@www ~]# echo var=&quot;$var&quot;, str=&quot;$str&quot;
+var=oldvar, str=oldvar  &lt;==因为 str 存在，所以 var 等于 str 的内容
+</code></pre>
+<h3>命令别名设定： alias, unalias</h3>
+<p>命令别名是一个很有趣的东西，特别是你的惯用指令特别长的时候！还有，增设默认的选项在一些惯用的指令上面，可以预防一些不小心误杀档案的情况发生的时候！举个例子来说，如果你要查询隐藏档，并且需要长的列出与一页一页翻看，那么需要下达『 ls -al | more 』这个指令，我是觉得很烦啦！要输入好几个单字！那可不可以使用 lm 来简化呢？当然可以，你可以在命令行下面下达：</p>
+<pre><code class="language-bash">[root@www ~]# alias lm=&#39;ls -al | more&#39;
+</code></pre>
+<pre><code class="language-bash">[root@www ~]# unalias lm
+</code></pre>
+<p><strong>例题：</strong></p>
+<p>DOS 年代，列出目录与档案就是 dir，而清除屏幕就是 cls，那么如果我想要在 linux 里面也使用相同的指令呢？</p>
+<p><strong>答：</strong></p>
+<p>很简单，透过 clear 与 ls 来进行命令别名的建置：</p>
+<pre><code class="language-bash">alias cls=&#39;clear&#39;
+alias dir=&#39;ls -l&#39;
+</code></pre>
+<h2>history命令使用</h2>
+<pre><code class="language-bash">[root@www ~]# alias h=&#39;history&#39;
+</code></pre>
+<p>如此则输入 h 等于输入 history 啰！好了，我们来谈一谈 history 的用法吧！</p>
+<pre><code class="language-bash">[root@www ~]# history [n]
+[root@www ~]# history [-c]
+[root@www ~]# history [-raw] histfiles
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>n</code>：数字，意思是『要列出最近的 n 笔命令行表』的意思！</li>
+<li><code>-c</code>：将目前的 shell 中的所有 history 内容全部消除</li>
+<li><code>-a</code>：将目前新增的 history 指令新增入 histfiles 中，若没有加 histfiles，则预设写入 ~/.bash_history</li>
+<li><code>-r</code>：将 histfiles 的内容读到目前这个 shell 的 history 记忆中；</li>
+<li><code>-w</code>：将目前的 history 记忆内容写入 histfiles 中！</li>
+</ul>
+<p><strong>范例一：列出目前内存内的所有 history 记忆</strong></p>
+<pre><code class="language-bash">[root@www ~]# history
+# 前面省略
+ 1017  man bash
+ 1018  ll
+ 1019  history
+ 1020  history
+# 列出的信息当中，共分两栏，第一栏为该指令在这个 shell 当中的代码，
+# 另一个则是指令本身的内容喔！至于会秀出几笔指令记录，则与 HISTSIZE 有关！
+</code></pre>
+<p><strong>范例二：列出目前最近的 3 笔资料</strong></p>
+<pre><code class="language-bash">[root@www ~]# history 3
+ 1019  history
+ 1020  history
+ 1021  history 3
+</code></pre>
+<p><strong>范例三：立刻将目前的资料写入 histfile 当中</strong></p>
+<pre><code class="language-bash">[root@www ~]# history -w
+# 在默认的情况下，会将历史纪录写入 ~/.bash_history 当中！
+[root@www ~]# echo $HISTSIZE
+1000
+</code></pre>
+<pre><code class="language-bash">[root@www ~]# !number
+[root@www ~]# !command
+[root@www ~]# !!
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>number</code>：执行第几笔指令的意思；</li>
+<li><code>command</code>：由最近的指令向前搜寻『指令串开头为 command』的那个指令，并执行；</li>
+<li><code>!!</code>：就是执行上一个指令(相当于按↑按键后，按 Enter)</li>
+</ul>
+<pre><code class="language-bash">[root@www ~]# history
+   66  man rm
+   67  alias
+   68  man history
+   69  history
+[root@www ~]# !66  &lt;==执行第 66 笔指令
+[root@www ~]# !!   &lt;==执行上一个指令，本例中亦即 !66
+[root@www ~]# !al  &lt;==执行最近以 al 为开头的指令(上头列出的第 67 个)
+</code></pre>
+<h2>路径与指令搜索顺序</h2>
+<h3>路径与指令搜寻顺序</h3>
+<p>我们在第六章与第七章都曾谈过『相对路径与绝对路径』的关系，在本章的前几小节也谈到了 alias 与 bash 的内建命令。现在我们知道系统里面其实有不少的 ls 指令，或者是包括内建的 echo 指令，那么来想一想，如果一个指令 (例如 ls) 被下达时，到底是哪一个 ls 被拿来运作？很有趣吧！基本上，指令运作的顺序可以这样看：</p>
+<ol>
+<li>以相对/绝对路径执行指令，例如『 /bin/ls 』或『 ./ls 』；</li>
+<li>由 alias 找到该指令来执行；</li>
+<li>由 bash 内建的 (builtin) 指令来执行；</li>
+<li>透过 $PATH 这个变量的顺序搜寻到的第一个指令来执行。</li>
+</ol>
+<p>如果想要了解指令搜寻的顺序，其实透过 type -a ls 也可以查询的到啦！上述的顺序最好先了解喔！</p>
+<h2>通配符</h2>
+<table>
+<thead>
+<tr>
+<th>符号</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>*</code></td>
+<td>代表『 0 个到无穷多个』任意字符</td>
+</tr>
+<tr>
+<td><code>?</code></td>
+<td>代表『一定有一个』任意字符</td>
+</tr>
+<tr>
+<td><code>[ ]</code></td>
+<td>同样代表『一定有一个在括号内』的字符(非任意字符)。例如 [abcd] 代表『一定有一个字符，可能是 a, b, c, d 这四个任何一个』</td>
+</tr>
+<tr>
+<td><code>[ - ]</code></td>
+<td>若有减号在中括号内时，代表『在编码顺序内的所有字符』。例如 [0-9] 代表 0 到 9 之间的所有数字，因为数字的语系编码是连续的！</td>
+</tr>
+<tr>
+<td><code>[^ ]</code></td>
+<td>若中括号内的第一个字符为指数符号 (^)，那表示『反向选择』，例如 [^abc] 代表一定有一个字符，只要是非 a, b, c 的其他字符就接受的意思。</td>
+</tr>
+</tbody></table>
+<p>接下来让我们利用通配符来玩些东西吧！首先，利用通配符配合 ls 找档名看看：</p>
+<pre><code class="language-bash">[root@www ~]# LANG=C              &lt;==由于与编码有关，先设定语系一下
+</code></pre>
+<p><strong>范例一：找出 /etc/ 底下以 cron 为开头的档名</strong></p>
+<pre><code class="language-bash">[root@www ~]# ll -d /etc/cron*    &lt;==加上 -d 是为了仅显示目录而已
+</code></pre>
+<p><strong>范例二：找出 /etc/ 底下文件名『刚好是五个字母』的文件名</strong></p>
+<pre><code class="language-bash">[root@www ~]# ll -d /etc/?????    &lt;==由于 ? 一定有一个，所以五个 ? 就对了
+</code></pre>
+<p><strong>范例三：找出 /etc/ 底下文件名含有数字的文件名</strong></p>
+<pre><code class="language-bash">[root@www ~]# ll -d /etc/*[0-9]*  &lt;==记得中括号左右两边均需 *
+</code></pre>
+<p><strong>范例四：找出 /etc/ 底下，档名开头非为小写字母的文件名：</strong></p>
+<pre><code class="language-bash">[root@www ~]# ll -d /etc/[^a-z]*  &lt;==注意中括号左边没有 *
+</code></pre>
+<p><strong>范例五：将范例四找到的档案复制到 /tmp 中</strong></p>
+<pre><code class="language-bash">[root@www ~]# cp -a /etc/[^a-z]* /tmp
+</code></pre>
+<h2>bash特殊字符</h2>
+<p>除了通配符之外，bash 环境中的特殊符号有哪些呢？底下我们先汇整一下：</p>
+<table>
+<thead>
+<tr>
+<th>符号</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>#</td>
+<td>批注符号：这个最常被使用在 script 当中，视为说明！在后的数据均不执行</td>
+</tr>
+<tr>
+<td>\</td>
+<td>跳脱符号：将『特殊字符或通配符』还原成一般字符</td>
+</tr>
+<tr>
+<td>|</td>
+<td>管线 (pipe)：分隔两个管线命令的界定(后两节介绍)；</td>
+</tr>
+<tr>
+<td>;</td>
+<td>连续指令下达分隔符：连续性命令的界定 (注意！与管线命令并不相同)</td>
+</tr>
+<tr>
+<td>~</td>
+<td>用户的家目录</td>
+</tr>
+<tr>
+<td>$</td>
+<td>取用变数前导符：亦即是变量之前需要加的变量取代值</td>
+</tr>
+<tr>
+<td>&amp;</td>
+<td>工作控制 (job control)：将指令变成背景下工作</td>
+</tr>
+<tr>
+<td>!</td>
+<td>逻辑运算意义上的『非』 not 的意思！</td>
+</tr>
+<tr>
+<td>/</td>
+<td>目录符号：路径分隔的符号</td>
+</tr>
+<tr>
+<td>&gt;, &gt;&gt;</td>
+<td>数据流重导向：输出导向，分别是『取代』与『累加』</td>
+</tr>
+<tr>
+<td>&lt;, &lt;&lt;</td>
+<td>数据流重导向：输入导向 (这两个留待下节介绍)</td>
+</tr>
+<tr>
+<td>&#39; &#39;</td>
+<td>单引号，不具有变量置换的功能</td>
+</tr>
+<tr>
+<td>&quot; &quot;</td>
+<td>具有变量置换的功能！</td>
+</tr>
+<tr>
+<td>` `</td>
+<td>两个『 ` 』中间为可以先执行的指令，亦可使用 $( )</td>
+</tr>
+<tr>
+<td>( )</td>
+<td>在中间为子 shell 的起始与结束</td>
+</tr>
+<tr>
+<td>{ }</td>
+<td>在中间为命令区块的组合！</td>
+</tr>
+</tbody></table>
+<p>以上为 bash 环境中常见的特殊符号汇整！理论上，你的『档名』尽量不要使用到上述的字符啦！</p>
+<h2>数据流重定向</h2>
+<p>什么是数据流重导向啊？这得要由指令的执行结果谈起！一般来说，如果你要执行一个指令，通常他会是这样的：</p>
+<pre><code class="language-text">file --Standard input--&gt; Command --Standard output--&gt; file/device
+                            |
+                      standard error
+                            v
+                       file/device
+</code></pre>
+<p>图 5.1.1、指令执行过程的数据传输情况</p>
+<ol>
+<li><p>标准输入 (stdin)：代码为 0，使用 &lt; 或 &lt;&lt; ；</p>
+</li>
+<li><p>标准输出 (stdout)：代码为 1，使用 &gt; 或 &gt;&gt; ；</p>
+</li>
+<li><p>标准错误输出(stderr)：代码为 2，使用 2&gt; 或 2&gt;&gt; ；</p>
+</li>
+<li><p>该档案 (本例中是 ~/rootfile) 若不存在，系统会自动的将他建立起来，但是</p>
+</li>
+<li><p>当这个档案存在的时候，那么系统就会先将这个档案内容清空，然后再将数据写入！</p>
+</li>
+<li><p>也就是若以 &gt; 输出到一个已存在的档案中，那个档案就会被覆盖掉啰！</p>
+</li>
+</ol>
+<p>啦！以上面的范例来说，你应该要改成『 ll / &gt;&gt; ~/rootfile 』即可。如此一来，当 (1) ~/rootfile 不存在时系统会主动建立这个档案；(2)若该档案已存在，则数据会在该档案的最下方累加进去！</p>
+<ul>
+<li>1&gt;：以覆盖的方法将『正确的数据』输出到指定的档案或装置上；</li>
+<li>1&gt;&gt;：以累加的方法将『正确的数据』输出到指定的档案或装置上；</li>
+<li>2&gt;：以覆盖的方法将『错误的数据』输出到指定的档案或装置上；</li>
+<li>2&gt;&gt;：以累加的方法将『错误的数据』输出到指定的档案或装置上；</li>
+</ul>
+<p><strong>范例三：承范例二，将 stdout 与 stderr 分存到不同的档案去</strong></p>
+<pre><code class="language-bash">[dmtsai@www ~]$ find /home -name .bashrc &gt; list_right 2&gt; list_error
+</code></pre>
+<ul>
+<li>/dev/null 垃圾桶黑洞装置与特殊写法</li>
+</ul>
+<p>想象一下，如果我知道错误讯息会发生，所以要将错误讯息忽略掉而不显示或储存呢？这个时候黑洞装置 /dev/null 就很重要了！这个 /dev/null 可以吃掉任何导向这个装置的信息喔！将上述的范例修订一下：</p>
+<p><strong>范例四：承范例三，将错误的数据丢弃，屏幕上显示正确的数据</strong></p>
+<pre><code class="language-bash">[dmtsai@www ~]$ find /home -name .bashrc 2&gt; /dev/null
+/home/dmtsai/.bashrc  &lt;==只有 stdout 会显示到屏幕上， stderr 被丢弃了
+</code></pre>
+<p><strong>范例五：将指令的数据全部写入名为 list 的档案中</strong></p>
+<pre><code class="language-bash">[dmtsai@www ~]$ find /home -name .bashrc &gt; list 2&gt; list  &lt;==错误
+[dmtsai@www ~]$ find /home -name .bashrc &gt; list 2&gt;&amp;1     &lt;==正确
+[dmtsai@www ~]$ find /home -name .bashrc &amp;&gt; list         &lt;==正确
+</code></pre>
+<p>上述表格第一行错误的原因是，由于两股数据同时写入一个档案，又没有使用特殊的语法，此时两股数据可能会交叉写入该档案内，造成次序的错乱。所以虽然最终 list 档案还是会产生，但是里面的数据排列就会怪怪的，而不是原本屏幕上的输出排序。至于写入同一个档案的特殊语法如上表所示，你可以使用 2&gt;&amp;1 也可以使用 &amp;&gt; ！一般来说，鸟哥比较习惯使用 2&gt;&amp;1 的语法啦！</p>
+<p><strong>范例七：用 stdin 取代键盘的输入以建立新档案的简单流程</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat &gt; catfile &lt; ~/.bashrc
+[root@www ~]# ll catfile ~/.bashrc
+-rw-r--r-- 1 root root 194 Sep 26 13:36 /root/.bashrc
+-rw-r--r-- 1 root root 194 Feb  6 18:29 catfile
+# 注意看，这两个档案的大小会一模一样！几乎像是使用 cp 来复制一般！
+</code></pre>
+<p>这东西非常的有帮助！尤其是用在类似 mail 这种指令的使用上。理解 &lt; 之后，再来则是怪可怕一把的 &lt;&lt; 这个连续两个小于的符号了。他代表的是『结束的输入字符』的意思！举例来讲：『我要用 cat 直接将输入的讯息输出到 catfile 中，且当由键盘输入 eof 时，该次输入就结束』，那我可以这样做：</p>
+<pre><code class="language-bash">[root@www ~]# cat &gt; catfile &lt;&lt; &quot;eof&quot;
+&gt; This is a test.
+&gt; OK now stop
+&gt; eof  &lt;==输入这关键词，立刻就结束而不需要输入 [ctrl]+d
+
+[root@www ~]# cat catfile
+This is a test.
+OK now stop     &lt;==只有这两行，不会存在关键词那一行！
+</code></pre>
+<h2>命令执行的判断依据</h2>
+<ul>
+<li>cmd ; cmd (不考虑指令相关性的连续指令下达)</li>
+</ul>
+<p>在某些时候，我们希望可以一次执行多个指令，例如在关机的时候我希望可以先执行两次 sync 同步化写入磁盘后才 shutdown 计算机，那么可以怎么作呢？这样做呀：</p>
+<pre><code class="language-bash">[root@www ~]# sync; sync; shutdown -h now
+</code></pre>
+<p>啦！再复习一次『若前一个指令执行的结果为正确，在 Linux 底下会回传一个 $? = 0 的值』。那么我们怎么透过这个回传值来判断后续的指令是否要执行呢？这就得要藉由『 &amp;&amp; 』及『 || 』的帮忙了！注意喔，两个 &amp; 之间是没有空格的！那个 | 则是 [Shift]+[] 的按键结果。</p>
+<table>
+<thead>
+<tr>
+<th>指令下达情况</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cmd1 &amp;&amp; cmd2</td>
+<td>1. 若 cmd1 执行完毕且正确执行($?=0)，则开始执行 cmd2。<br>2. 若 cmd1 执行完毕且为错误 ($?≠0)，则 cmd2 不执行。</td>
+</tr>
+<tr>
+<td>cmd1 || cmd2</td>
+<td>1. 若 cmd1 执行完毕且正确执行($?=0)，则 cmd2 不执行。<br>2. 若 cmd1 执行完毕且为错误 ($?≠0)，则开始执行 cmd2。</td>
+</tr>
+</tbody></table>
+<p><strong>范例一：使用 ls 查阅目录 /tmp/abc 是否存在，若存在则用 touch 建立 /tmp/abc/hehe</strong></p>
+<pre><code class="language-bash">[root@www ~]# ls /tmp/abc &amp;&amp; touch /tmp/abc/hehe
+ls: /tmp/abc: No such file or directory
+# ls 很干脆的说明找不到该目录，但并没有 touch 的错误，表示 touch 并没有执行
+
+[root@www ~]# mkdir /tmp/abc
+[root@www ~]# ls /tmp/abc &amp;&amp; touch /tmp/abc/hehe
+[root@www ~]# ll /tmp/abc
+-rw-r--r-- 1 root root 0 Feb  7 12:43 hehe
+</code></pre>
+<p><strong>范例三：我不清楚 /tmp/abc 是否存在，但就是要建立 /tmp/abc/hehe 档案</strong></p>
+<pre><code class="language-bash">[root@www ~]# ls /tmp/abc || mkdir /tmp/abc &amp;&amp; touch /tmp/abc/hehe
+</code></pre>
+<p><strong>例题：</strong></p>
+<p>以 ls 测试 /tmp/vbirding 是否存在，若存在则显示 &quot;exist&quot;，若不存在，则显示 &quot;not exist&quot;！</p>
+<p><strong>答：</strong></p>
+<p>这又牵涉到逻辑判断的问题，如果存在就显示某个数据，若不存在就显示其他数据，那我可以这样做：</p>
+<pre><code class="language-bash">ls /tmp/vbirding &amp;&amp; echo &quot;exist&quot; || echo &quot;not exist&quot;
+</code></pre>
+<p>意思是说，当 ls /tmp/vbirding 执行后，若正确，就执行 echo &quot;exist&quot;，若有问题，就执行 echo &quot;not exist&quot;！那如果写成如下的状况会出现什么？</p>
+<pre><code class="language-bash">ls /tmp/vbirding || echo &quot;not exist&quot; &amp;&amp; echo &quot;exist&quot;
+</code></pre>
+<p>这其实是有问题的，为什么呢？由图 5.2.1 的流程介绍我们知道指令是一个一个往后执行，因此在上面的例子当中，如果 /tmp/vbirding 不存在时，他会进行如下动作：</p>
+<ol>
+<li>若 ls /tmp/vbirding 不存在，因此回传一个非为 0 的数值；</li>
+<li>接下来经过 || 的判断，发现前一个指令回传非为 0 的数值，因此，程序开始执行 echo &quot;not exist&quot;，而 echo &quot;not exist&quot; 程序肯定可以执行成功，因此会回传一个 0 值给后面的指令；</li>
+<li>经过 &amp;&amp; 的判断，咦！是 0 啊！所以就开始执行 echo &quot;exist&quot;。</li>
+</ol>
+<p>所以啊，嘿嘿！第二个例子里面竟然会同时出现 not exist 与 exist 呢！真神奇～</p>
+<h2>管线命令 (pipe)</h2>
+<p>假设我们想要知道 /etc/ 底下有多少档案，那么可以利用 ls /etc 来查阅，不过，因为 /etc 底下的档案太多，导致一口气就将屏幕塞满了～不知道前面输出的内容是啥？此时，我们可以透过 less 指令的协助，利用：</p>
+<pre><code class="language-bash">[root@www ~]# ls -al /etc | less
+</code></pre>
+<p>如此一来，使用 ls 指令输出后的内容，就能够被 less 读取，并且利用 less 的功能，我们就能够前后翻动相关的信息了！很方便是吧？我们就来了解一下这个管线命令『 | 』的用途吧！其实这个管线命令『 | 』仅能处理经由前面一个指令传来的正确信息，也就是 standard output 的信息，对于 stdandard error 并没有直接处理的能力。那么整体的管线命令可以使用下图表示：</p>
+<pre><code class="language-text">Command 1 --STDOUT--&gt; STDIN Command 2 --STDOUT--&gt; STDIN Command 3
+</code></pre>
+<p>图 6.1.1、管线命令的处理示意图</p>
+<p>在每个管线后面接的第一个数据必定是『指令』喔！而且这个指令必须要能够接受 standard input 的数据才行，这样的指令才可以是为『管线命令』，例如 less, more, head, tail 等都是可以接受 standard input 的管线命令啦。至于例如 ls, cp, mv 等就不是管线命令了！因为 ls, cp, mv 并不会接受来自 stdin 的数据。也就是说，管线命令主要有两个比较需要注意的地方：</p>
+<ul>
+<li>管线命令仅会处理 standard output，对于 standard error output 会予以忽略</li>
+<li>管线命令必须要能够接受来自前一个指令的数据成为 standard input 继续处理才行。</li>
+</ul>
+<h2>截取命令cut、grep</h2>
+<pre><code class="language-bash">[root@www ~]# cut -d&#39;分隔字符&#39; -f fields &lt;==用于有特定分隔字符
+[root@www ~]# cut -c 字符区间            &lt;==用于排列整齐的讯息
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-d</code>：后面接分隔字符。与 -f 一起使用；</li>
+<li><code>-f</code>：依据 -d 的分隔字符将一段讯息分割成为数段，用 -f 取出第几段的意思；</li>
+<li><code>-c</code>：以字符 (characters) 的单位取出固定字符区间；</li>
+</ul>
+<p><strong>范例一：将 PATH 变量取出，我要找出第五个路径。</strong></p>
+<pre><code class="language-bash">[root@www ~]# echo $PATH
+/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/X11R6/bin:/usr/games:
+# 1 | 2  | 3 | 4  |    5     |     6     |    7
+
+[root@www ~]# echo $PATH | cut -d &#39;:&#39; -f 5
+# 如同上面的数字显示，我们是以『 : 』作为分隔，因此会出现 /usr/local/bin
+# 那么如果想要列出第 3 与第 5 呢？，就是这样：
+[root@www ~]# echo $PATH | cut -d &#39;:&#39; -f 3,5
+</code></pre>
+<p><strong>范例二：将 export 输出的讯息，取得第 12 字符以后的所有字符串</strong></p>
+<pre><code class="language-bash">[root@www ~]# export
+declare -x HISTSIZE=&quot;1000&quot;
+declare -x INPUTRC=&quot;/etc/inputrc&quot;
+declare -x KDEDIR=&quot;/usr&quot;
+declare -x LANG=&quot;zh_TW.big5&quot;
+.....(其他省略).....
+# 注意看，每个数据都是排列整齐的输出！如果我们不想要『 declare -x 』时，
+# 就得这么做：
+
+[root@www ~]# export | cut -c 12-
+HISTSIZE=&quot;1000&quot;
+INPUTRC=&quot;/etc/inputrc&quot;
+KDEDIR=&quot;/usr&quot;
+LANG=&quot;zh_TW.big5&quot;
+.....(其他省略).....
+# 知道怎么回事了吧？用 -c 可以处理比较具有格式的输出数据！
+# 我们还可以指定某个范围的值，例如第 12-20 的字符，就是 cut -c 12-20 等等！
+</code></pre>
+<p><strong>范例三：用 last 将显示的登入者的信息中，仅留下用户大名</strong></p>
+<pre><code class="language-bash">[root@www ~]# last
+root   pts/1    192.168.201.101  Sat Feb  7 12:35   still logged in
+root   pts/1    192.168.201.101  Fri Feb  6 12:13 - 18:46  (06:33)
+root   pts/1    192.168.201.254  Thu Feb  5 22:37 - 23:53  (01:16)
+# last 可以输出『账号/终端机/来源/日期时间』的数据，并且是排列整齐的
+
+[root@www ~]# last | cut -d &#39; &#39; -f 1
+# 由输出的结果我们可以发现第一个空白分隔的字段代表账号，所以使用如上指令：
+# 但是因为 root   pts/1 之间空格有好几个，并非仅有一个，所以，如果要找出
+# pts/1 其实不能以 cut -d &#39; &#39; -f 1,2 喔！输出的结果会不是我们想要的。
+</code></pre>
+<ul>
+<li>grep</li>
+</ul>
+<p>刚刚的 cut 是将一行讯息当中，取出某部分我们想要的，而 grep 则是分析一行讯息，若当中有我们所需要的信息，就将该行拿出来～简单的语法是这样的：</p>
+<pre><code class="language-bash">[root@www ~]# grep [-acinv] [--color=auto] &#39;搜寻字符串&#39; filename
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-a</code>：将 binary 档案以 text 档案的方式搜寻数据</li>
+<li><code>-c</code>：计算找到 &#39;搜寻字符串&#39; 的次数</li>
+<li><code>-i</code>：忽略大小写的不同，所以大小写视为相同</li>
+<li><code>-n</code>：顺便输出行号</li>
+<li><code>-v</code>：反向选择，亦即显示出没有 &#39;搜寻字符串&#39; 内容的那一行！</li>
+<li><code>--color=auto</code>：可以将找到的关键词部分加上颜色的显示喔！</li>
+</ul>
+<p><strong>范例一：将 last 当中，有出现 root 的那一行就取出来；</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | grep &#39;root&#39;
+</code></pre>
+<p><strong>范例二：与范例一相反，只要没有 root 的就取出！</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | grep -v &#39;root&#39;
+</code></pre>
+<p><strong>范例三：在 last 的输出讯息中，只要有 root 就取出，并且仅取第一栏</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | grep &#39;root&#39; |cut -d &#39; &#39; -f1
+# 在取出 root 之后，利用上个指令 cut 的处理，就能够仅取得第一栏啰！
+</code></pre>
+<p><strong>范例四：取出 /etc/man.config 内含 MANPATH 的那几行</strong></p>
+<pre><code class="language-bash">[root@www ~]# grep --color=auto &#39;MANPATH&#39; /etc/man.config
+....(前面省略)....
+MANPATH_MAP     /usr/X11R6/bin          /usr/X11R6/man
+MANPATH_MAP     /usr/bin/X11            /usr/X11R6/man
+MANPATH_MAP     /usr/bin/mh             /usr/share/man
+# 神奇的是，如果加上 --color=auto 的选项，找到的关键词部分会用特殊颜色显示喔！
+</code></pre>
+<h2>grep进阶</h2>
+<pre><code class="language-bash">[root@www ~]# grep [-A] [-B] [--color=auto] &#39;搜寻字符串&#39; filename
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-A</code>：后面可加数字，为 after 的意思，除了列出该行外，后续的 n 行也列出来；</li>
+<li><code>-B</code>：后面可加数字，为 befer 的意思，除了列出该行外，前面的 n 行也列出来；</li>
+<li><code>--color=auto</code>：可将正确的那个撷取数据列出颜色</li>
+</ul>
+<p><strong>范例一：用 dmesg 列出核心讯息，再以 grep 找出内含 eth 那行</strong></p>
+<pre><code class="language-bash">[root@www ~]# dmesg | grep &#39;eth&#39;
+eth0: RealTek RTL8139 at 0xee846000, 00:90:cc:a6:34:84, IRQ 10
+eth0:  Identified 8139 chip type &#39;RTL-8139C&#39;
+eth0: link up, 100Mbps, full-duplex, lpa 0xC5E1
+eth0: no IPv6 routers present
+# dmesg 可列出核心产生的讯息！透过 grep 来撷取网络卡相关信息 (eth) ，
+# 就可发现如上信息。不过没有行号与特殊颜色显示！看看下个范例吧！
+</code></pre>
+<p><strong>范例二：承上题，要将捉到的关键词显色，且加上行号来表示：</strong></p>
+<pre><code class="language-bash">[root@www ~]# dmesg | grep -n --color=auto &#39;eth&#39;
+247:eth0: RealTek RTL8139 at 0xee846000, 00:90:cc:a6:34:84, IRQ 10
+248:eth0:  Identified 8139 chip type &#39;RTL-8139C&#39;
+294:eth0: link up, 100Mbps, full-duplex, lpa 0xC5E1
+305:eth0: no IPv6 routers present
+# 你会发现除了 eth 会有特殊颜色来表示之外，最前面还有行号喔！
+</code></pre>
+<p><strong>范例三：承上题，在关键词所在行的前两行与后三行也一起捉出来显示</strong></p>
+<pre><code class="language-bash">[root@www ~]# dmesg | grep -n -A3 -B2 --color=auto &#39;eth&#39;
+245-PCI: setting IRQ 10 as level-triggered
+246-ACPI: PCI Interrupt 0000:00:0e.0[A] -&gt; Link [LNKB] ...
+247:eth0: RealTek RTL8139 at 0xee846000, 00:90:cc:a6:34:84, IRQ 10
+248:eth0:  Identified 8139 chip type &#39;RTL-8139C&#39;
+249-input: PC Speaker as /class/input/input2
+250-ACPI: PCI Interrupt 0000:00:01.4[B] -&gt; Link [LNKB] ...
+251-hdb: ATAPI 48X DVD-ROM DVD-R-RAM CD-R/RW drive, 2048kB Cache, UDMA(66)
+# 如上所示，你会发现关键词 247 所在的前两行及 248 后三行也都被显示出来！
+# 这样可以让你将关键词前后数据捉出来进行分析啦！
+</code></pre>
+<p>grep 是一个很常见也很常用的指令，他最重要的功能就是进行字符串数据的比对，然后将符合用户需求的字符串打印出来。需要说明的是『grep 在数据中查寻一个字符串时，是以 &quot;整行&quot; 为单位来进行数据的撷取的！』也就是说，假如一个档案内有 10 行，其中有两行具有你所搜寻的字符串，则将那两行显示在屏幕上，其他的就丢弃了！</p>
+<p>在关键词的显示方面，grep 可以使用 --color=auto 来将关键词部分使用颜色显示。这可是个很不错的功能啊！但是如果每次使用 grep 都得要自行加上 --color=auto 又显的很麻烦～此时那个好用的 alias 就得来处理一下啦！你可以在 ~/.bashrc 内加上这行：『alias grep=&#39;grep --color=auto&#39;』再以『 source ~/.bashrc 』来立即生效即可喔！这样每次执行 grep 他都会自动帮你加上颜色显示啦！</p>
+<ul>
+<li>例题一、搜寻特定字符串</li>
+</ul>
+<p>搜寻特定字符串很简单吧？假设我们要从刚刚的档案当中取得 the 这个特定字符串，最简单的方式就是这样：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;the&#39; regular_express.txt
+8:I can&#39;t finish the test.
+12:the symbol &#39;*&#39; is represented as start.
+15:You are the best is mean you are the no. 1.
+16:The world &lt;Happy&gt; is the same with &quot;glad&quot;.
+18:google is the best tools for search keyword.
+</code></pre>
+<p>那如果想要『反向选择』呢？也就是说，当该行没有 &#39;the&#39; 这个字符串时才显示在屏幕上，那就直接使用：</p>
+<pre><code class="language-bash">[root@www ~]# grep -vn &#39;the&#39; regular_express.txt
+</code></pre>
+<p>你会发现，屏幕上出现的行列为除了 8,12,15,16,18 五行之外的其他行列！接下来，如果你想要取得不论大小写的 the 这个字符串，则：</p>
+<pre><code class="language-bash">[root@www ~]# grep -in &#39;the&#39; regular_express.txt
+8:I can&#39;t finish the test.
+9:Oh! The soup taste good.
+12:the symbol &#39;*&#39; is represented as start.
+14:The gd software is a library for drafting programs.
+15:You are the best is mean you are the no. 1.
+16:The world &lt;Happy&gt; is the same with &quot;glad&quot;.
+18:google is the best tools for search keyword.
+</code></pre>
+<p>除了多两行 (9, 14 行) 之外，第 16 行也多了一个 The 的关键词被撷取到喔！</p>
+<ul>
+<li>例题二、利用中括号 [] 来搜寻集合字符</li>
+</ul>
+<p>如果我想要搜寻 test 或 taste 这两个单字时，可以发现到，其实她们有共通的 &#39;t?st&#39; 存在～这个时候，我可以这样来搜寻：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;t[ae]st&#39; regular_express.txt
+8:I can&#39;t finish the test.
+9:Oh! The soup taste good.
+</code></pre>
+<p>了解了吧？其实 [] 里面不论有几个字符，他都谨代表某『一个』字符，所以，上面的例子说明了，我需要的字符串是『tast』或『test』两个字符串而已！而如果想要搜寻到有 oo 的字符时，则使用：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;oo&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+2:apple is my favorite food.
+3:Football game is not use feet only.
+9:Oh! The soup taste good.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+</code></pre>
+<p>但是，如果我不想要 oo 前面有 g 的话呢？此时，可以利用在集合字符的反向选择 [^] 来达成：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;[^g]oo&#39; regular_express.txt
+2:apple is my favorite food.
+3:Football game is not use feet only.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+</code></pre>
+<p>再来，假设我 oo 前面不想要有小写字符，所以，我可以这样写 [^abcd....z]oo ，但是这样似乎不怎么方便，由于小写字符的 ASCII 上编码的顺序是连续的，因此，我们可以将之简化为底下这样：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;[^a-z]oo&#39; regular_express.txt
+3:Football game is not use feet only.
+</code></pre>
+<p>也就是说，当我们在一组集合字符中，如果该字符组是连续的，例如大写英文/小写英文/数字等等，就可以使用[a-z],[A-Z],[0-9]等方式来书写，那么如果我们的要求字符串是数字与英文呢？呵呵！就将他全部写在一起，变成：[a-zA-Z0-9]。例如，我们要取得有数字的那一行，就这样：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;[0-9]&#39; regular_express.txt
+5:However, this dress is about $ 3183 dollars.
+15:You are the best is mean you are the no. 1.
+</code></pre>
+<p>但由于考虑到语系对于编码顺序的影响，因此除了连续编码使用减号『 - 』之外，你也可以使用如下的</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;[^[:lower:]]oo&#39; regular_express.txt
+# 那个 [:lower:] 代表的就是 a-z 的意思！请参考前两小节的说明表格
+
+[root@www ~]# grep -n &#39;[[:digit:]]&#39; regular_express.txt
+</code></pre>
+<ul>
+<li>例题三、行首与行尾字符 ^ $</li>
+</ul>
+<p>我们在例题一当中，可以查询到一行字符串里面有 the 的，那如果我想要让 the 只在行首列出呢？这个时候就得要使用制表符了！我们可以这样做：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;^the&#39; regular_express.txt
+12:the symbol &#39;*&#39; is represented as start.
+</code></pre>
+<p>此时，就只剩下第 12 行，因为只有第 12 行的行首是 the 开头啊～此外，如果我想要开头是小写字符的那一行就列出呢？可以这样：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;^[a-z]&#39; regular_express.txt
+2:apple is my favorite food.
+4:this dress doesn&#39;t fit me.
+10:motorcycle is cheap than car.
+12:the symbol &#39;*&#39; is represented as start.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+20:go! go! Let&#39;s go.
+</code></pre>
+<p>你可以发现我们可以捉到第一个字符都不是大写的！只不过 grep 列出的关键词部分不只有第一个字符，grep 是列出一整个字 (word) 说！同样的，上面的指令也可以用如下的方式来取代的：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;^[[:lower:]]&#39; regular_express.txt
+</code></pre>
+<p>好！那如果我不想要开头是英文字母，则可以是这样：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;^[^a-zA-Z]&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+21:# I am VBird
+# 指令也可以是： grep -n &#39;^[^[:alpha:]]&#39; regular_express.txt
+</code></pre>
+<p>注意到了吧？那个 ^ 符号，在字符集合符号(括号[])之内与之外是不同的！在 [] 内代表『反向选择』，在 [] 之外则代表定位在行首的意义！要分清楚喔！反过来思考，那如果我想要找出来，行尾结束为小数点 (.) 的那一行，该如何处理：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;\.$&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+2:apple is my favorite food.
+3:Football game is not use feet only.
+4:this dress doesn&#39;t fit me.
+10:motorcycle is cheap than car.
+11:This window is clear.
+12:the symbol &#39;*&#39; is represented as start.
+15:You are the best is mean you are the no. 1.
+16:The world &lt;Happy&gt; is the same with &quot;glad&quot;.
+17:I like dog.
+18:google is the best tools for search keyword.
+20:go! go! Let&#39;s go.
+</code></pre>
+<p>特别注意到，因为小数点具有其他意义(底下会介绍)，所以必须要使用跳脱字符()来加以解除其特殊意义！不过，你或许会觉得奇怪，但是第 5~9 行最后面也是 . 啊～怎么无法打印出来？这里就牵涉到 Windows 平台的软件对于断行字符的判断问题了！我们使用 cat -A 将第五行拿出来看，你会发现：</p>
+<pre><code class="language-bash">[root@www ~]# cat -An regular_express.txt | head -n 10 | tail -n 6
+     5  However, this dress is about $ 3183 dollars.^M$
+     6  GNU is free air not free beer.^M$
+     7  Her hair is very beauty.^M$
+     8  I can&#39;t finish the test.^M$
+     9  Oh! The soup taste good.^M$
+    10  motorcycle is cheap than car.$
+</code></pre>
+<p>我们在第十章内谈到过断行字符在 Linux 与 Windows 上的差异，在上面的表格中我们可以发现 5<del>9 行为 Windows 的断行字符 (^M$) ，而正常的 Linux 应该仅有第 10 行显示的那样 ($) 。所以啰，那个 . 自然就不是紧接在 $ 之前喔！也就捉不到 5</del>9 行了！这样可以了解 ^ 与 $ 的意义吗？好了，先不要看底下的解答，自己想一想，那么如果我想要找出来，哪一行是『空白行』，也就是说，该行并没有输入任何数据，该如何搜寻？</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;^$&#39; regular_express.txt
+22:
+</code></pre>
+<p>因为只有行首跟行尾 (^$)，所以，这样就可以找出空白行啦！再来，假设你已经知道在一个程序脚本 (shell script) 或者是配置文件当中，空白行与开头为 # 的那一行是批注，因此如果你要将资料列出给别人参考时，可以将这些数据省略掉以节省保贵的纸张，那么你可以怎么作呢？我们以 /etc/syslog.conf 这个档案来作范例，你可以自行参考一下输出的结果：</p>
+<pre><code class="language-bash">[root@www ~]# cat -n /etc/syslog.conf
+# 在 CentOS 中，结果可以发现有 33 行的输出，很多空白行与 # 开头
+
+[root@www ~]# grep -v &#39;^$&#39; /etc/syslog.conf | grep -v &#39;^#&#39;
+# 结果仅有 10 行，其中第一个『 -v &#39;^$&#39; 』代表『不要空白行』，
+# 第二个『 -v &#39;^#&#39; 』代表『不要开头是 # 的那行』喔！
+</code></pre>
+<p>是否节省很多版面啊？</p>
+<ul>
+<li>例题四、任意一个字符 . 与重复字符 *</li>
+</ul>
+<p>在第十一章 bash 当中，我们知道通配符 * 可以用来代表任意(0 或多个)字符，但是正规表示法并不是通配符，两者之间是不相同的！至于正规表示法当中的『 . 』则代表『绝对有一个任意字符』的意思！这两个符号在正规表示法的意义如下：</p>
+<ul>
+<li>. (小数点)：代表『一定有一个任意字符』的意思；</li>
+<li>* (星星号)：代表『重复前一个 0 到无穷多次』的意思，为组合形态</li>
+</ul>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;g..d&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+9:Oh! The soup taste good.
+16:The world &lt;Happy&gt; is the same with &quot;glad&quot;.
+</code></pre>
+<p>因为 * 代表的是『重复 0 个或多个前面的 RE 字符』的意义，因此，『o*』代表的是：『拥有空字符或一个 o 以上的字符』，特别注意，因为允许空字符(就是有没有字符都可以的意思)，因此，『 grep -n &#39;o*&#39; regular_express.txt 』将会把所有的数据都打印出来屏幕上！</p>
+<p>那如果是『oo*』呢？则第一个 o 肯定必须要存在，第二个 o 则是可有可无的多个 o ，所以，凡是含有 o, oo, ooo, oooo 等等，都可以被列出来～</p>
+<p>同理，当我们需要『至少两个 o 以上的字符串』时，就需要 ooo* ，亦即是：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;ooo*&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+2:apple is my favorite food.
+3:Football game is not use feet only.
+9:Oh! The soup taste good.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+</code></pre>
+<p>这样理解 * 的意义了吗？好了，现在出个练习，如果我想要字符串开头与结尾都是 g，但是两个 g 之间仅能存在至少一个 o ，亦即是 gog, goog, gooog.... 等等，那该如何？</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;goo*g&#39; regular_express.txt
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+</code></pre>
+<p>如此了解了吗？再来一题，如果我想要找出 g 开头与 g 结尾的字符串，当中的字符可有可无，那该如何是好？是『g*g』吗？</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;g*g&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+3:Football game is not use feet only.
+9:Oh! The soup taste good.
+13:Oh!  My god!
+14:The gd software is a library for drafting programs.
+16:The world &lt;Happy&gt; is the same with &quot;glad&quot;.
+17:I like dog.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+20:go! go! Let&#39;s go.
+</code></pre>
+<p>但测试的结果竟然出现这么多行？太诡异了吧？其实一点也不诡异，因为 g<em>g 里面的 g</em> 代表『空字符或一个以上的 g』在加上后面的 g，因此，整个 RE 的内容就是 g, gg, ggg, gggg，因此，只要该行当中拥有一个以上的 g 就符合所需了！</p>
+<p>那该如何得到我们的 g....g 的需求呢？呵呵！就利用任意一个字符『.』啊！亦即是：『g.<em>g』的作法，因为 * 可以是 0 或多个重复前面的字符，而 . 是任意字符，所以：『.</em> 就代表零个或多个任意字符』的意思啦！</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;g.*g&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+14:The gd software is a library for drafting programs.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+20:go! go! Let&#39;s go.
+</code></pre>
+<p>因为是代表 g 开头与 g 结尾，中间任意字符均可接受，所以，第 1, 14, 20 行是可接受的喔！这个 .* 的 RE 表示任意字符是很常见的，希望大家能够理解并且熟悉！再出一题，如果我想要找出『任意数字』的行列呢？因为仅有数字，所以就成为：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;[0-9][0-9]*&#39; regular_express.txt
+5:However, this dress is about $ 3183 dollars.
+15:You are the best is mean you are the no. 1.
+</code></pre>
+<p>虽然使用 grep -n &#39;[0-9]&#39; regular_express.txt 也可以得到相同的结果，但鸟哥希望大家能够理解上面指令当中 RE 表示法的意义才好！</p>
+<ul>
+<li>例题五、限定连续 RE 字符范围 {}</li>
+</ul>
+<p>在上个例题当中，我们可以利用 . 与 RE 字符及 * 来设定 0 个到无限多个重复字符，那如果我想要限制一个范围区间内的重复字符数呢？举例来说，我想要找出两个到五个 o 的连续字符串，该如何作？这时候就得要使用到限定范围的字符 {} 了。但因为 { 与 } 的符号在 shell 是有特殊意义的，因此，我们必须要使用跳脱字符 \ 来让他失去特殊意义才行。至于 {} 的语法是这样的，假设我要找到两个 o 的字符串，可以是：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;o\{2\}&#39; regular_express.txt
+1:&quot;Open Source&quot; is a good mechanism to develop programs.
+2:apple is my favorite food.
+3:Football game is not use feet only.
+9:Oh! The soup taste good.
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+</code></pre>
+<p>这样看似乎与 ooo* 的字符没有什么差异啊？因为第 19 行有多个 o 依旧也出现了！好，那么换个搜寻的字符串，假设我们要找出 g 后面接 2 到 5 个 o ，然后再接一个 g 的字符串，他会是这样：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;go\{2,5\}g&#39; regular_express.txt
+18:google is the best tools for search keyword.
+</code></pre>
+<p>嗯！很好！第 19 行终于没有被取用了(因为 19 行有 6 个 o 啊！)。那么，如果我想要的是 2 个 o 以上的 goooo....g 呢？除了可以是 gooo*g ，也可以是：</p>
+<pre><code class="language-bash">[root@www ~]# grep -n &#39;go\{2,\}g&#39; regular_express.txt
+18:google is the best tools for search keyword.
+19:goooooogle yes!
+</code></pre>
+<h2>dd命令</h2>
+<p><strong>(8) dd命令</strong></p>
+<p>dd命令用于按照指定大小和个数的数据块来复制文件或转换文件。它能够让用户按照指定大小和个数的数据块来复制文件的内容，还可以在复制过程中转换其中的数据。Linux系统中有一个名为 /dev/zero 的设备文件，因为这个文件不会占用系统存储空间，但却可以提供无穷无尽的数据，所以可以使用它作为dd命令的输入文件，来生成一个指定大小的文件。</p>
+<p>dd命令的功能也绝不仅限于复制文件这么简单。如果您想把光驱设备中的光盘制作成iso格式的映像文件，在Windows系统中需要借助于第三方软件才能做到，但在Linux系统中可以直接使用dd命令来压制出光盘映像文件。</p>
+<p><strong>(8) dd命令</strong></p>
+<p>例如：我们可以用dd命令从 /dev/zero 设备文件中取出两个大小为560MB的数据块，然后保存成名为file1的文件。</p>
+<pre><code class="language-bash">[root@Server01 ~]# dd if=/dev/zero of=file1 count=2 bs=560M
+记录了2+0 的读入
+记录了2+0 的写出
+1174405120 bytes (1.2 GB, 1.1 GiB) copied, 8.23961 s, 143 MB/s
+[root@Server01 ~]# rm file1
+</code></pre>
+<p>例如：我们可以用dd命令制作光盘映像文件iso。</p>
+<pre><code class="language-bash">[root@Server01 ~]# dd if=/dev/cdrom of=RHEL-server-8.0-x86_64.iso
+7311360+0 records in
+7311360+0 records out
+3743416320 bytes (3.7 GB) copied, 370.758 s, 10.1 MB/s
+[root@Server01 ~]# rm RHEL-server-8.0-x86_64.iso
+</code></pre>
+<h2>排序命令sort</h2>
+<p>sort 是很有趣的指令，他可以帮我们进行排序，而且可以依据不同的数据型态来排序喔！例如数字与文字的排序就不一样。此外，排序的字符与语系的编码有关，因此，如果您需要排序时，建议使用 LANG=C 来让语系统一，数据排序比较好一些。</p>
+<pre><code class="language-bash">[root@www ~]# sort [-fbMnrtuk] [file or stdin]
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-f</code>：忽略大小写的差异，例如 A 与 a 视为编码相同；</li>
+<li><code>-b</code>：忽略最前面的空格符部分；</li>
+<li><code>-M</code>：以月份的名字来排序，例如 JAN, DEC 等等的排序方法；</li>
+<li><code>-n</code>：使用『纯数字』进行排序(默认是以文字型态来排序的)；</li>
+<li><code>-r</code>：反向排序；</li>
+<li><code>-u</code>：就是 uniq ，相同的数据中，仅出现一行代表；</li>
+<li><code>-t</code>：分隔符，预设是用 [tab] 键来分隔；</li>
+<li><code>-k</code>：以那个区间 (field) 来进行排序的意思</li>
+</ul>
+<p><strong>范例一：个人账号都记录在 /etc/passwd 下，请将账号进行排序。</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/passwd | sort
+adm:x:3:4:adm:/var/adm:/sbin/nologin
+apache:x:48:48:Apache:/var/www:/sbin/nologin
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+# 鸟哥省略很多的输出～由上面的数据看起来， sort 是预设『以第一个』数据来排序，
+# 而且默认是以『文字』型态来排序的喔！所以由 a 开始排到最后啰！
+</code></pre>
+<p><strong>范例二：/etc/passwd 内容是以 : 来分隔的，我想以第三栏来排序，该如何？</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/passwd | sort -t &#39;:&#39; -k 3
+root:x:0:0:root:/root:/bin/bash
+uucp:x:10:14:uucp:/var/spool/uucp:/sbin/nologin
+operator:x:11:0:operator:/root:/sbin/nologin
+bin:x:1:1:bin:/bin:/sbin/nologin
+games:x:12:100:games:/usr/games:/sbin/nologin
+# 看到特殊字体的输出部分了吧？怎么会这样排列啊？呵呵！没错啦～
+# 如果是以文字型态来排序的话，原本就会是这样，想要使用数字排序：
+# cat /etc/passwd | sort -t &#39;:&#39; -k 3 -n
+# 这样才行啊！用那个 -n 来告知 sort 以数字来排序啊！
+</code></pre>
+<p><strong>范例三：利用 last ，将输出的数据仅取账号，并加以排序</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | cut -d &#39; &#39; -f1 | sort
+</code></pre>
+<h2>排序命令uniq</h2>
+<ul>
+<li>uniq</li>
+</ul>
+<p>如果我排序完成了，想要将重复的资料仅列出一个显示，可以怎么做呢？</p>
+<pre><code class="language-bash">[root@www ~]# uniq [-ic]
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-i</code>：忽略大小写字符的不同；</li>
+<li><code>-c</code>：进行计数</li>
+</ul>
+<p><strong>范例一：使用 last 将账号列出，仅取出账号栏，进行排序后仅取出一位；</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | cut -d &#39; &#39; -f1 | sort | uniq
+</code></pre>
+<p><strong>范例二：承上题，如果我还想要知道每个人的登入总次数呢？</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | cut -d &#39; &#39; -f1 | sort | uniq -c
+      1
+     12 reboot
+</code></pre>
+<p>这个指令用来将『重复的行删除掉只显示一个』，举个例子来说，你要知道这个月份登入你主机的用户有谁，而不在乎他的登入次数，那么就使用上面的范例，(1)先将所有的数据列出；(2)再将人名独立出来；(3)经过排序；(4)只显示一个！由于这个指令是在将重复的东西减少，所以当然需要『配合排序过的档案』来处理啰！</p>
+<h2>排序命令wc</h2>
+<ul>
+<li>wc</li>
+</ul>
+<p>如果我想要知道 /etc/man.config 这个档案里面有多少字？多少行？多少字符的话，可以怎么做呢？其实可以利用 wc 这个指令来达成喔！他可以帮我们计算输出的讯息的整体数据！</p>
+<pre><code class="language-bash">[root@www ~]# wc [-lwm]
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-l</code>：仅列出行；</li>
+<li><code>-w</code>：仅列出多少字(英文单字)；</li>
+<li><code>-m</code>：多少字符；</li>
+</ul>
+<p><strong>范例一：那个 /etc/man.config 里面到底有多少相关字、行、字符数？</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/man.config | wc
+    141     722    4617
+# 输出的三个数字中，分别代表： 『行、字数、字符数』
+</code></pre>
+<p><strong>范例二：我知道使用 last 可以输出登入者，但是 last 最后两行并非账号内容，那么请问，我该如何以一行指令串取得这个月份登入系统的总人次？</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | grep [a-zA-Z] | grep -v &#39;wtmp&#39; | wc -l
+# 由于 last 会输出空白行与 wtmp 字样在最底下两行，因此，我利用
+# grep 取出非空白行，以及去除 wtmp 那一行，在计算行数，就能够了解啰！
+</code></pre>
+<p>wc 也可以当作指令？这可不是上洗手间的 WC 呢！这是相当有用的计算档案内容的一个工具组喔！举个例子来说，当你要知道目前你的账号档案中有多少个账号时，就使用这个方法：『 cat /etc/passwd | wc -l 』啦！因为 /etc/passwd 里头一行代表一个使用者呀！所以知道行数就晓得有多少的账号在里头了！而如果要计算一个档案里头有多少个字符时，就使用 wc -c 这个选项吧！</p>
+<h2>双向重导向tee</h2>
+<p><strong>双向重导向：tee</strong></p>
+<p>想个简单的东西，我们由前一节知道 &gt; 会将数据流整个传送给档案或装置，因此我们除非去读取该档案或装置，否则就无法继续利用这个数据流。万一我想要将这个数据流的处理过程中将某段讯息存下来，应该怎么做？利用 tee 就可以啰～我们可以这样简单的看一下：</p>
+<pre><code class="language-text">Standard input --&gt; tee --&gt; Screen
+                    |
+                    v
+                   file
+</code></pre>
+<p>图 6.3.1、tee 的工作流程示意图</p>
+<p>tee 会同时将数据流分送到档案去与屏幕 (screen)；而输出到屏幕的，其实就是 stdout ，可以让下个指令继续处理喔！</p>
+<pre><code class="language-bash">[root@www ~]# tee [-a] file
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-a</code>：以累加 (append) 的方式，将数据加入 file 当中！</li>
+</ul>
+<pre><code class="language-bash">[root@www ~]# last | tee last.list | cut -d &quot; &quot; -f1
+# 这个范例可以让我们将 last 的输出存一份到 last.list 档案中；
+
+[root@www ~]# ls -l /home | tee ~/homefile | more
+# 这个范例则是将 ls 的数据存一份到 ~/homefile ，同时屏幕也有输出讯息！
+
+[root@www ~]# ls -l / | tee -a ~/homefile | more
+# 要注意！ tee 后接的档案会被覆盖，若加上 -a 这个选项则能将讯息累加。
+</code></pre>
+<h2>字符转换命令 tr</h2>
+<ul>
+<li>tr</li>
+</ul>
+<p>tr 可以用来删除一段讯息当中的文字，或者是进行文字讯息的替换！</p>
+<pre><code class="language-bash">[root@www ~]# tr [-ds] SET1 ...
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-d</code>：删除讯息当中的 SET1 这个字符串；</li>
+<li><code>-s</code>：取代掉重复的字符！</li>
+</ul>
+<p><strong>范例一：将 last 输出的讯息中，所有的小写变成大写字符：</strong></p>
+<pre><code class="language-bash">[root@www ~]# last | tr &#39;[a-z]&#39; &#39;[A-Z]&#39;
+# 事实上，没有加上单引号也是可以执行的，如：『 last | tr [a-z] [A-Z] 』
+</code></pre>
+<p><strong>范例二：将 /etc/passwd 输出的讯息中，将冒号 (:) 删除</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/passwd | tr -d &#39;:&#39;
+</code></pre>
+<p><strong>范例三：将 /etc/passwd 转存成 dos 断行到 /root/passwd 中，再将 ^M 符号删除</strong></p>
+<pre><code class="language-bash">[root@www ~]# cp /etc/passwd /root/passwd &amp;&amp; unix2dos /root/passwd
+[root@www ~]# file /etc/passwd /root/passwd
+/etc/passwd:  ASCII text
+/root/passwd: ASCII text, with CRLF line terminators &lt;==就是 DOS 断行
+[root@www ~]# cat /root/passwd | tr -d &#39;\r&#39; &gt; /root/passwd.linux
+# 那个 \r 指的是 DOS 的断行字符，关于更多的字符，请参考 man tr
+[root@www ~]# ll /etc/passwd /root/passwd*
+-rw-r--r-- 1 root root 1986 Feb  6 17:55 /etc/passwd
+-rw-r--r-- 1 root root 2030 Feb  7 15:55 /root/passwd
+-rw-r--r-- 1 root root 1986 Feb  7 15:57 /root/passwd.linux
+# 处理过后，发现档案大小与原本的 /etc/passwd 就一致了！
+</code></pre>
+<h2>字符转换命令 col</h2>
+<ul>
+<li>col</li>
+</ul>
+<pre><code class="language-bash">[root@www ~]# col [-xb]
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-x</code>：将 tab 键转换成对等的空格键</li>
+<li><code>-b</code>：在文字内有反斜杠 (/) 时，仅保留反斜杠最后接的那个字符</li>
+</ul>
+<p><strong>范例一：利用 cat -A 显示出所有特殊按键，最后以 col 将 [tab] 转成空白</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat -A /etc/man.config  &lt;==此时会看到很多 ^I 的符号，那就是 tab
+[root@www ~]# cat /etc/man.config | col -x | cat -A | more
+# 嘿嘿！如此一来， [tab] 按键会被取代成为空格键，输出就美观多了！
+</code></pre>
+<p><strong>范例二：将 col 的 man page 转存成为 /root/col.man 的纯文本档</strong></p>
+<pre><code class="language-bash">[root@www ~]# man col &gt; /root/col.man
+[root@www ~]# vi /root/col.man
+COL(1)          BSD General Commands Manual             COL(1)
+
+N^HNA^HAM^HME^HE
+     c^Hco^Hol^Hl - filter reverse line feeds from input
+
+S^HSY^HYN^HNO^HOP^HPS^HSI^HIS^HS
+     c^Hco^Hol^Hl [-^H-b^Hbf^Hfp^Hpx^Hx] [-^H-l^Hl_^Hn_^Hu_^Hm]
+# 你没看错！由于 man page 内有些特殊按钮会用来作为类似特殊按键与颜色显示，
+# 所以这个档案内就会出现如上所示的一堆怪异字符(有 ^ 的)
+
+[root@www ~]# man col | col -b &gt; /root/col.man
+</code></pre>
+<h2>字符转换命令join</h2>
+<ul>
+<li>join</li>
+</ul>
+<p>join 看字面上的意义 (加入/参加) 就可以知道，他是在处理两个档案之间的数据， 而且，主要是在处理『两个档案当中，有 &quot;相同数据&quot; 的那一行，才将他加在一起』的意思。我们利用底下的简单例子来说</p>
+<pre><code class="language-bash">[root@www ~]# join [-ti12] file1 file2
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-t</code>：join 默认以空格符分隔数据，并且比对『第一个字段』的数据，如果两个档案相同，则将两笔数据联成一行，且第一个字段放在第一个！</li>
+<li><code>-i</code>：忽略大小写的差异；</li>
+<li><code>-1</code>：这个是数字的 1 ，代表『第一个档案要用那个字段来分析』的意思；</li>
+<li><code>-2</code>：代表『第二个档案要用那个字段来分析』的意思。</li>
+</ul>
+<p><strong>范例一：用 root 的身份，将 /etc/passwd 与 /etc/shadow 相关数据整合成一栏</strong></p>
+<pre><code class="language-bash">[root@www ~]# head -n 3 /etc/passwd /etc/shadow
+==&gt; /etc/passwd &lt;==
+root:x:0:0:root:/root:/bin/bash
+bin:x:1:1:bin:/bin:/sbin/nologin
+daemon:x:2:2:daemon:/sbin:/sbin/nologin
+
+==&gt; /etc/shadow &lt;==
+root:$1$/3AQpE5e$y9A/D0bh6rElAs:14120:0:99999:7:::
+bin:*:14126:0:99999:7:::
+daemon:*:14126:0:99999:7:::
+# 由输出的资料可以发现这两个档案的最左边字段都是账号！且以 : 分隔
+
+[root@www ~]# join -t &#39;:&#39; /etc/passwd /etc/shadow
+root:x:0:0:root:/root:/bin/bash:$1$/3AQpE5e$y9A/D0bh6rElAs:14120:0:99999:7:::
+bin:x:1:1:bin:/bin:/sbin/nologin:*:14126:0:99999:7:::
+daemon:x:2:2:daemon:/sbin:/sbin/nologin:*:14126:0:99999:7:::
+# 透过上面这个动作，我们可以将两个档案第一字段相同者整合成一行！
+# 第二个档案的相同字段并不会显示(因为已经在第一行了嘛！)
+</code></pre>
+<pre><code class="language-bash">[root@www ~]# join -t &#39;:&#39; -1 4 /etc/passwd -2 3 /etc/group
+0:root:x:0:root:/root:/bin/bash:root:x:root
+1:bin:x:1:bin:/bin:/sbin/nologin:bin:x:root,bin,daemon
+2:daemon:x:2:daemon:/sbin:/sbin/nologin:daemon:x:root,bin,daemon
+# 同样的，相同的字段部分被移动到最前面了！所以第二个档案的内容就没再显示。
+# 请读者们配合上述显示两个档案的实际内容来比对！
+</code></pre>
+<p>此外，需要特别注意的是，在使用 join 之前，你所需要处理的档案应该要事先经过排序 (sort) 处理！否则有些比对的项目会被略过呢！特别注意了！</p>
+<h2>字符转换命令paste</h2>
+<ul>
+<li>paste</li>
+</ul>
+<p>这个 paste 就要比 join 简单多了！相对于 join 必须要比对两个档案的数据相关性， paste 就直接『将两行贴在一起，且中间以 [tab] 键隔开』而已！简单的使用方法：</p>
+<pre><code class="language-bash">[root@www ~]# paste [-d] file1 file2
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-d</code>：后面可以接分隔字符。预设是以 [tab] 来分隔的！</li>
+<li><code>-</code>：如果 file 部分写成 - ，表示来自 standard input 的资料的意思。</li>
+</ul>
+<p><strong>范例一：将 /etc/passwd 与 /etc/shadow 同一行贴在一起</strong></p>
+<pre><code class="language-bash">[root@www ~]# paste /etc/passwd /etc/shadow
+bin:x:1:1:bin:/bin:/sbin/nologin        bin:*:14126:0:99999:7:::
+daemon:x:2:2:daemon:/sbin:/sbin/nologin daemon:*:14126:0:99999:7:::
+adm:x:3:4:adm:/var/adm:/sbin/nologin    adm:*:14126:0:99999:7:::
+# 注意喔！同一行中间是以 [tab] 按键隔开的！
+</code></pre>
+<p><strong>范例二：先将 /etc/group 读出(用 cat)，然后与范例一贴上一起！且仅取出前三行</strong></p>
+<pre><code class="language-bash">[root@www ~]# cat /etc/group|paste /etc/passwd /etc/shadow -|head -n
+3
+# 这个例子的重点在那个 - 的使用！那玩意儿常常代表 stdin 喔！
+</code></pre>
+<h2>字符转换命令expand</h2>
+<ul>
+<li>expand</li>
+</ul>
+<p>这玩意儿就是在将 [tab] 按键转成空格键啦～可以这样玩：</p>
+<pre><code class="language-bash">[root@www ~]# expand [-t] file
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-t</code>：后面可以接数字。一般来说，一个 tab 按键可以用 8 个空格键取代。我们也可以自行定义一个 [tab] 按键代表多少个字符呢！</li>
+</ul>
+<p><strong>范例一：将 /etc/man.config 内行首为 MANPATH 的字样就取出；仅取前三行；</strong></p>
+<pre><code class="language-bash">[root@www ~]# grep &#39;^MANPATH&#39; /etc/man.config | head -n 3
+MANPATH /usr/man
+MANPATH /usr/share/man
+MANPATH /usr/local/man
+# 行首的代表标志为 ^ ，这个我们留待下节介绍！先有概念即可！
+</code></pre>
+<p><strong>范例二：承上，如果我想要将所有的符号都列出来？(用 cat)</strong></p>
+<pre><code class="language-bash">[root@www ~]# grep &#39;^MANPATH&#39; /etc/man.config | head -n 3 |cat -A
+MANPATH^I/usr/man$
+MANPATH^I/usr/share/man$
+MANPATH^I/usr/local/man$
+# 发现差别了吗？没错～ [tab] 按键可以被 cat -A 显示成为 ^I
+</code></pre>
+<p><strong>范例三：承上，我将 [tab] 按键设定成 6 个字符的话？</strong></p>
+<pre><code class="language-bash">[root@www ~]# grep &#39;^MANPATH&#39; /etc/man.config | head -n 3 | \
+&gt;  expand -t 6 - | cat -A
+MANPATH     /usr/man$
+MANPATH     /usr/share/man$
+MANPATH     /usr/local/man$
+123456123456123456.....
+# 仔细看一下上面的数字说明，因为我是以 6 个字符来代表一个 [tab] 的长度，
+所以，
+# MAN... 到 /usr 之间会隔 12 (两个 [tab]) 个字符喔！如果 tab 改成 9 的话，
+# 情况就又不同了！这里也不好理解～您可以多设定几个数字来查阅就晓得！
+</code></pre>
+<p>expand 也是挺好玩的～他会自动将 [tab] 转成空格键～所以，以上面的例子来说， 使用 cat -A 就会查不到 ^I 的字符啰～此外，因为 [tab] 最大的功能就是格式排列整齐！ 我们转成空格键后，这个空格键也会依据我们自己的定义来增加大小～ 所以，并不是一个 ^I 就会换成 8 个空白喔！这个地方要特别注意的哩！ 此外，您也可以参考一下 unexpand 这个将空白转成 [tab] 的指令功能啊！ ^_^</p>
+<h2>分割命令split</h2>
+<p>分割命令： split</p>
+<p>如果你有档案太大，导致一些携带式装置无法复制的问题，嘿嘿！找 split 就对了！ 他可以帮你将一个大档案，依据档案大小或行数来分割，就可以将大档案分割成为小档案了！ 快速又有效啊！真不错～</p>
+<pre><code class="language-bash">[root@www ~]# split [-bl] file PREFIX
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-b</code>：后面可接欲分割成的档案大小，可加单位，例如 b, k, m 等；</li>
+<li><code>-l</code>：以行数来进行分割。</li>
+<li><code>PREFIX</code>：代表前导符的意思，可作为分割档案的前导文字。</li>
+</ul>
+<p><strong>范例一：我的 /etc/termcap 有七百多 K，若想要分成 300K 一个档案时？</strong></p>
+<pre><code class="language-bash">[root@www ~]# cd /tmp; split -b 300k /etc/termcap termcap
+[root@www tmp]# ll -k termcap*
+-rw-r--r-- 1 root root 300 Feb  7 16:39 termcapaa
+-rw-r--r-- 1 root root 300 Feb  7 16:39 termcapab
+-rw-r--r-- 1 root root 189 Feb  7 16:39 termcapac
+# 那个档名可以随意取的啦！我们只要写上前导文字，小档案就会以
+# xxxaa, xxxab, xxxac 等方式来建立小档案的！
+</code></pre>
+<p><strong>范例二：如何将上面的三个小档案合成一个档案，档名为 termcapback</strong></p>
+<pre><code class="language-bash">[root@www tmp]# cat termcap* &gt;&gt; termcapback
+# 很简单吧？就用数据流重导向就好啦！简单！
+</code></pre>
+<p><strong>范例三：使用 ls -al / 输出的信息中，每十行记录成一个档案</strong></p>
+<pre><code class="language-bash">[root@www tmp]# ls -al / | split -l 10 - lsroot
+[root@www tmp]# wc -l lsroot*
+  10 lsrootaa
+  10 lsrootab
+   6 lsrootac
+  26 total
+# 重点在那个 - 啦！一般来说，如果需要 stdout/stdin 时，但偏偏又没有档案，
+# 有的只是 - 时，那么那个 - 就会被当成 stdin 或 stdout ～
+</code></pre>
+<h2>参数代换xargs</h2>
+<p>参数代换： xargs</p>
+<p>xargs 是在做什么的呢？就以字面上的意义来看， x 是加减乘除的乘号，args 则是 arguments (参数) 的意思，所以说，这个玩意儿就是在产生某个指令的参数的意思！ xargs 可以读入 stdin 的数据，并且以空格符或断行字符作为分辨，将 stdin 的资料分隔成为 arguments 。 因为是以空格符作为分隔，所以，如果有一些档名或者是其他意义的名词内含有空格符的时候， xargs 可能就会误判了～他的用法其实也还满简单的！就来看一看先！</p>
+<pre><code class="language-bash">[root@www ~]# xargs [-0epn] command
+</code></pre>
+<p>选项与参数：</p>
+<ul>
+<li><code>-0</code>：如果输入的 stdin 含有特殊字符，例如 `, \, 空格键等等字符时，这个 -0 参数可以将他还原成一般字符。这个参数可以用于特殊状态喔！</li>
+<li><code>-e</code>：这个是 EOF (end of file) 的意思。后面可以接一个字符串，当 xargs 分析到这个字符串时，就会停止继续工作！</li>
+<li><code>-p</code>：在执行每个指令的 argument 时，都会询问使用者的意思；</li>
+<li><code>-n</code>：后面接次数，每次 command 指令执行时，要使用几个参数的意思。看范例三。</li>
+</ul>
+<p>当 xargs 后面没有接任何的指令时，默认是以 echo 来进行输出喔！</p>
+<p><strong>范例一：将 /etc/passwd 内的第一栏取出，仅取三行，使用 finger 这个指令将每个账号内容秀出来</strong></p>
+<pre><code class="language-bash">[root@www ~]# cut -d&#39;:&#39; -f1 /etc/passwd |head -n 3| xargs finger
+Login: root                     Name: root
+Directory: /root                Shell: /bin/bash
+Never logged in.
+No mail.
+No Plan.
+......底下省略.....
+# 由 finger account 可以取得该账号的相关说明内容，例如上面的输出就是
+finger root
+# 后的结果。在这个例子当中，我们利用 cut 取出账号名称，用 head 取出三个
+账号，
+# 最后则是由 xargs 将三个账号的名称变成 finger 后面需要的参数！
+</code></pre>
+<p><strong>范例二：同上，但是每次执行 finger 时，都要询问使用者是否动作？</strong></p>
+<pre><code class="language-bash">[root@www ~]# cut -d&#39;:&#39; -f1 /etc/passwd |head -n 3| xargs -p finger
+finger root bin daemon ?...y
+.....(底下省略)....
+# 呵呵！这个 -p 的选项可以让用户的使用过程中，被询问到每个指令是否执
+行！
+</code></pre>
+<p><strong>范例三：将所有的 /etc/passwd 内的账号都以 finger 查阅，但一次仅查阅五个账号</strong></p>
+<pre><code class="language-bash">[root@www ~]# cut -d&#39;:&#39; -f1 /etc/passwd | xargs -p -n 5 finger
+finger root bin daemon adm lp ?...y
+.....(中间省略)....
+finger uucp operator games gopher ftp ?...y
+.....(底下省略)....
+# 在这里鸟哥使用了 -p 这个参数来让您对于 -n 更有概念。一般来说，某些指令
+后面
+# 可以接的 arguments 是有限制的，不能无限制的累加，此时，我们可以利用 -
+n
+# 来帮助我们将参数分成数个部分，每个部分分别再以指令来执行！这样就 OK
+啦！^_^
+</code></pre>
+<p><strong>范例四：同上，但是当分析到 lp 就结束这串指令？</strong></p>
+<pre><code class="language-bash">[root@www ~]# cut -d&#39;:&#39; -f1 /etc/passwd | xargs -p -e&#39;lp&#39; finger
+finger root bin daemon adm ?...
+# 仔细与上面的案例做比较。也同时注意，那个 -e&#39;lp&#39; 是连在一起的，中间没有
+空格键。
+# 上个例子当中，第五个参数是 lp 啊，那么我们下达 -e&#39;lp&#39; 后，则分析到 lp
+# 这个字符串时，后面的其他 stdin 的内容就会被 xargs 舍弃掉了！
+</code></pre>
+<p>的一个玩意儿！您真的需要好好的参详参详！会使用 xargs 的原因是， 很多指令其实并不支持管线命令，因此我们可以透过 xargs 来提供该指令引用 standard input 之用！举例来说，我们使用如下的范例来说明：</p>
+<p><strong>范例五：找出 /sbin 底下具有特殊权限的档名，并使用 ls -l 列出详细属性</strong></p>
+<pre><code class="language-bash">[root@www ~]# find /sbin -perm +7000 | ls -l
+# 结果竟然仅有列出 root 所在目录下的档案！这不是我们要的！
+# 因为 ll (ls) 并不是管线命令的原因啊！
+
+[root@www ~]# find /sbin -perm +7000 | xargs ls -l
+-rwsr-xr-x 1 root root 70420 May 25  2008 /sbin/mount.nfs
+-rwsr-xr-x 1 root root 70424 May 25  2008 /sbin/mount.nfs4
+-rwxr-sr-x 1 root root  5920 Jun 15  2008 /sbin/netreport
+....(底下省略)....
+</code></pre>
+<h2>bash知识总结及例题</h2>
+<p><strong>重点回顾</strong></p>
+<ul>
+<li>由于核心在内存中是受保护的区块，因此我们必须要透过『 Shell 』将我们输入的指令与 Kernel 沟通，好让 Kernel 可以控制硬件来正确无误的工作</li>
+<li>学习 shell 的原因主要有：文字接口的 shell 在各大 distribution 都一样；远程管理时文字接口速度较快； shell 是管理 Linux 系统非常重要的一环，因为 Linux 内很多控制都是以 shell 撰写的。</li>
+<li>系统合法的 shell 均写在 /etc/shells 档案中；</li>
+<li>用户默认登入取得的 shell 记录于 /etc/passwd 的最后一个字段；</li>
+<li>bash 的功能主要有：命令编修能力；命令与档案补全功能；命令别名设定功能；工作控制、前景背景控制；程序化脚本；通配符</li>
+<li>type 可以用来找到执行指令为何种类型，亦可用于与 which 相同的功能；</li>
+<li>变量就是以一组文字或符号等，来取代一些设定或者是一串保留的数据</li>
+<li>变量主要有环境变量与自定义变量，或称为全局变量与局部变量</li>
+<li>使用 env 与 export 可观察环境变量，其中 export 可以将自定义变量转成环境变量；</li>
+<li>set 可以观察目前 bash 环境下的所有变量；</li>
+<li>$? 亦为变量，是前一个指令执行完毕后的回传值。在 Linux 回传值为 0 代表执行成功；</li>
+<li>locale 可用于观察语系资料；</li>
+<li>可用 read 让用户由键盘输入变量的值</li>
+<li>ulimit 可用以限制用户使用系统的资源情况</li>
+<li>bash 的配置文件主要分为 login shell 与 non-login shell。login shell 主要读取 /etc/profile 与 ~/.bash_profile， non-login shell 则仅读取 ~/.bashrc</li>
+<li>通配符主要有： *, ?, [] 等等</li>
+<li>数据流重导向透过 &gt;, 2&gt;, &lt; 之类的符号将输出的信息转到其他档案或装置去；</li>
+<li>连续命令的下达可透过 ; &amp;&amp; || 等符号来处理</li>
+<li>管线命令的重点是：『管线命令仅会处理 standard output，对于 standard error output 会予以忽略』 『管线命令必须要能够接受来自前一个指令的数据成为 standard input 继续处理才行。』</li>
+<li>本章介绍的管线命令主要有：cut, grep, sort, wc, uniq, tee, tr, col, join, paste, expand, split,</li>
+</ul>
+<p><strong>本章习题</strong></p>
+<p>( 要看答案请将鼠标移动到『答：』底下的空白处，按下左键圈选空白处即可察看 )</p>
+<ul>
+<li>情境模拟题一：由于 ~/.bash_history 仅能记录指令，我想要在每次注销时都记录时间，并将后续的指令 50 笔记录下来， 可以如何处理？<ul>
+<li>目标：了解 history ，并透过数据流重导向的方式记录历史命令；</li>
+<li>前提：需要了解本章的数据流重导向，以及了解 bash 的各个环境配置文件信息。</li>
+</ul>
+</li>
+</ul>
+<p>其实处理的方式非常简单，我们可以了解 date 可以输出时间，而利用 ~/.myhistory 来记录所有历史记录， 而目前最新的 50 笔历史记录可以使用 history 50 来显示，故可以修改 ~/.bash_logout 成为底下的模样：</p>
+<pre><code class="language-bash">[root@www ~]# vim ~/.bash_logout
+date &gt;&gt; ~/.myhistory
+history 50 &gt;&gt; ~/.myhistory
+</code></pre>
+<p><strong>简答题部分：</strong></p>
+<ul>
+<li><p>在 Linux 上可以找到哪些 shell(举出三个) ？那个档案记录可用的 shell ？而 Linux 预设的 shell 是？</p>
+<ol>
+<li>/bin/bash, /bin/tcsh, /bin/csh  </li>
+<li>/etc/shells  </li>
+<li>bash ，亦即是 /bin/bash。</li>
+</ol>
+</li>
+<li><p>在 shell 环境下，有个提示字符 (prompt)，他可以修改吗？要改什么？默认的提示字符内容是？</p>
+<p>可以修改的，改 PS1 这个变量，这个 PS1 变量的默认内容为：『<code>[\u@\h \W]\$</code>』</p>
+</li>
+<li><p>如何显示 HOME 这个环境变量？</p>
+<pre><code class="language-bash">echo $HOME
+</code></pre>
+</li>
+<li><p>如何得知目前的所有变量与环境变量的设定值？</p>
+<p>环境变量用 env 或 export 而所有变量用 set 即可显示</p>
+</li>
+<li><p>我是否可以设定一个变量名称为 3myhome ？</p>
+<p>不行！变量不能以数字做为开头，参考变量设定规则的内容</p>
+</li>
+<li><p>在这样的练习中『A=B』且『B=C』，若我下达『unset $A』，则取消的变数是 A 还是 B？</p>
+<p>被取消的是 B 喔，因为 unset $A 相当于 unset B 所以取消的是 B ，A 会继续存在！</p>
+</li>
+<li><p>如何取消变量与命令别名的内容？</p>
+<p>使用 unset 及 unalias 即可</p>
+</li>
+<li><p>如何设定一个变量名称为 name 内容为 It&#39;s my name ？</p>
+<p><code>name=It\&#39;s\ my\ name</code> 或 <code>name=&quot;It&#39;s my name&quot;</code></p>
+</li>
+<li><p>bash 环境配置文件主要分为哪两种类型的读取？分别读取哪些重要档案？</p>
+<p>(1)login shell：主要读取 /etc/profile 及 ~/.bash_profile<br>(2)non-logni shell：主要读取 ~/.bashrc 而已。</p>
+</li>
+<li><p>CentOS 5.x 的 man page 的路径配置文件案？</p>
+<p>/etc/man.config</p>
+</li>
+<li><p>试说明 &#39;, &quot;, 与 ` 这些符号在变量定义中的用途？</p>
+<p>参考变量规则那一章节，其中， &quot; 可以具有变量的上下文属性，&#39; 则仅有一般字符，至于 ` 之内则是可先被执行的指令。</p>
+</li>
+<li><p>跳脱符号 \ 有什么用途？</p>
+<p>可以用来跳脱特殊字符，例如 Enter, $ 等等，使成为一般字符！</p>
+</li>
+<li><p>连续命令中， ;, &amp;&amp;, || 有何不同？</p>
+<p>分号可以让两个 command 连续运作，不考虑 command1 的输出状态， &amp;&amp; 则前一个指令必需要没有错误讯息，亦即回传值需为 0 则 command2 才会被执行， || 则与 &amp;&amp; 相反！</p>
+</li>
+<li><p>如何将 last 的结果中，独立出账号，并且印出曾经登入过的账号？</p>
+<pre><code class="language-bash">last | cut -d &#39; &#39; -f1 | sort | uniq
+</code></pre>
+</li>
+<li><p>请问 foo1 &amp;&amp; foo2 | foo3 &gt; foo4 ，这个指令串当中， foo1/foo2/foo3/foo4 是指令还是档案？ 整串指令的意义为？</p>
+<p>foo1, foo2 与 foo3 都是指令， foo4 是装置或档案。整串指令意义为：<br>(1)当 foo1 执行结果有错误时，则该指令串结束；<br>(2)若 foo1 执行结果没有错误时，则执行 foo2 | foo3 &gt; foo4 ；其中：<br>(2-1)foo2 将 stdout 输出的结果传给 foo3 处理；<br>(2-2)foo3 将来自 foo2 的 stdout 当成 stdin ，处理完后将数据流重新导向 foo4 这个装置/档案</p>
+</li>
+<li><p>如何秀出在 /bin 底下任何以 a 为开头的档案文件名的详细资料？</p>
+<pre><code class="language-bash">ls -l /bin/a*
+</code></pre>
+</li>
+<li><p>如何秀出 /bin 底下，文件名为四个字符的档案？</p>
+<pre><code class="language-bash">ls -l /bin/????
+</code></pre>
+</li>
+<li><p>如何秀出 /bin 底下，档名开头不是 a-d 的档案？</p>
+<pre><code class="language-bash">ls -l /bin/[^a-d]*
+</code></pre>
+</li>
+<li><p>我想要让终端机接口的登入提示字符修改成我自己喜好的模样，应该要改哪里？(filename)</p>
+<p>/etc/issue</p>
+</li>
+<li><p>承上题，如果我是想要让使用者登入后，才显示欢迎讯息，又应该要改哪里？</p>
+<p>/etc/motd</p>
+</li>
+</ul>
+
+<a class="btn" href="/#/p/0t7dgds0ag">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>

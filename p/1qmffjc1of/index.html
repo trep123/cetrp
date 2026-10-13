@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>分解实验03：NAT原理及应用 - 林的笔记</title>
+<meta name="description" content="梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。">
+<meta name="keywords" content="软考,网络工程师,华为,NAT">
+<link rel="canonical" href="https://0x-z.cn/p/1qmffjc1of/">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分解实验03：NAT原理及应用">
+<meta property="og:description" content="梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。">
+<meta property="og:url" content="https://0x-z.cn/p/1qmffjc1of/">
+<meta property="og:site_name" content="林的笔记">
+<link rel="icon" href="/img/Cetrp.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"分解实验03：NAT原理及应用","description":"梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。","url":"https://0x-z.cn/p/1qmffjc1of/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-11","dateModified":"2026-10-11","keywords":"软考,网络工程师,华为,NAT"}</script>
+<style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+.wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
+article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
+.meta{color:#888;font-size:14px;margin-bottom:22px}.meta span{margin-right:12px}img{max-width:100%;height:auto}pre{background:#1e1e22;color:#eee;padding:14px;border-radius:8px;overflow:auto;font-size:14px}
+code{font-family:Consolas,Menlo,monospace}:not(pre)>code{background:#f0f0f3;padding:1px 5px;border-radius:4px}table{border-collapse:collapse;display:block;overflow:auto;max-width:100%}
+th,td{border:1px solid #ddd;padding:6px 10px}blockquote{margin:0;padding:4px 14px;border-left:4px solid #c9c9d1;color:#555}a{color:#2563eb}.btn{display:inline-block;margin-top:26px;padding:8px 16px;border-radius:8px;background:#2b2b2d;color:#fff;text-decoration:none}
+footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><a href="/">← 林的笔记</a><a href="/#/p/1qmffjc1of">在博客中阅读</a></header>
+<article>
+<h1>分解实验03：NAT原理及应用</h1>
+<div class="meta"><span>2026-10-11</span><span>Network / Huawei</span><span>#软考</span><span>#网络工程师</span><span>#华为</span><span>#NAT</span></div>
+<p>本实验先介绍 NAT 的技术背景和 RFC1918 私网地址段，再在出口路由器 R1 上依次配置静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种地址转换方式。</p>
+<!-- more -->
+
+<h2>一、技术背景与原理</h2>
+<p>随着互联网用户的增多，IPv4 公有地址资源短缺，同时 IPv4 公有地址资源存在地址分配不均的问题，这导致部分地区的 IPv4 可用公有地址严重不足。为解决该问题，使用过渡技术 NAT 解决 IPv4 公有地址短缺。内网可以使用 RFC1918 定义的私有地址，访问互联网时通过 NAT 网络地址转换技术将私网 IP 转换成公网 IP。下面就是 RFC1918 定义的私网地址段：</p>
+<pre><code class="language-text">A类：10.0.0.0 ~ 10.255.255.255
+B类：172.16.0.0 ~ 172.31.255.255
+C类：192.168.0.0 ~ 192.168.255.255
+</code></pre>
+<h2>二、5 种 NAT 类型</h2>
+<p>五种类型共用同一套拓扑：三台内网 PC 经交换机接到出口路由器 R1（NAT 设备），R1 经 Internet 连到外网 Web 服务器。</p>
+<table>
+<thead>
+<tr>
+<th>设备</th>
+<th>接口 / 位置</th>
+<th>IP/掩码</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PC1</td>
+<td>私有网络</td>
+<td>192.168.1.1/24</td>
+<td>内网主机</td>
+</tr>
+<tr>
+<td>PC2</td>
+<td>私有网络</td>
+<td>192.168.1.2/24</td>
+<td>内网主机</td>
+</tr>
+<tr>
+<td>PC3</td>
+<td>私有网络</td>
+<td>192.168.1.3/24</td>
+<td>内网主机</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>内网侧接口</td>
+<td>192.168.1.254</td>
+<td>内网网关、NAT 设备</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>G0/0/1（公网侧）</td>
+<td>12.1.1.1/24</td>
+<td>出接口，NAT 在此配置</td>
+</tr>
+<tr>
+<td>Web 服务器</td>
+<td>Internet 侧</td>
+<td>12.1.1.254/24</td>
+<td>外网服务器</td>
+</tr>
+</tbody></table>
+<pre><code class="language-text"> 私有网络
+ PC1 192.168.1.1/24 ─┐
+ PC2 192.168.1.2/24 ─┼─[SW]── 192.168.1.254 [R1/NAT] 12.1.1.1/24 ── Internet ── Web服务器 12.1.1.254/24
+ PC3 192.168.1.3/24 ─┘
+</code></pre>
+<h3>1、静态 NAT</h3>
+<p>静态 NAT：将内网主机的私网 IP 地址一对一映射到公网 IP 地址。</p>
+<p>图 静态 NAT 原理中的 NAT 映射表：</p>
+<table>
+<thead>
+<tr>
+<th>私有地址</th>
+<th>公有地址</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>192.168.1.1</td>
+<td>12.1.1.2</td>
+</tr>
+<tr>
+<td>192.168.1.2</td>
+<td>12.1.1.3</td>
+</tr>
+<tr>
+<td>192.168.1.3</td>
+<td>12.1.1.4</td>
+</tr>
+</tbody></table>
+<p>在 R1 上配置静态 NAT 将内网主机的私有地址一对一映射到公有地址。</p>
+<pre><code class="language-text">[R1] interface GigabitEthernet0/0/1
+[R1-GigabitEthernet0/0/1] ip address 12.1.1.1 24
+[R1-GigabitEthernet0/0/1] nat static enable //开启静态NAT功能
+[R1-GigabitEthernet0/0/1] nat static global 12.1.1.2 inside 192.168.1.1
+[R1-GigabitEthernet0/0/1] nat static global 12.1.1.3 inside 192.168.1.2
+[R1-GigabitEthernet0/0/1] nat static global 12.1.1.4 inside 192.168.1.3
+//配置1对1地址转换关系，其中路由器接口地址不能用，不然会提示冲突。
+</code></pre>
+<h3>2、动态 NAT</h3>
+<p>动态 NAT：将内网主机的私有地址转换为公网地址池里面的地址。由于静态 NAT 严格地一对一进行地址映射，这就导致即便内网主机长时间离线或者不发送数据时，与之对应的公有地址也处于使用状态。为了避免地址浪费，动态 NAT 提出了地址池概念：所有可用的公有地址组成地址池。当内部主机访问外部网络时临时分配一个地址池中未使用的地址，并将该地址标记为“In Use”。当该主机不再访问外部网络时回收分配的地址，重新标记为“Not Use”。</p>
+<p>图中的 NAT 地址池（初始状态）：</p>
+<table>
+<thead>
+<tr>
+<th>公有地址</th>
+<th>状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>12.1.1.2</td>
+<td>Not Use</td>
+</tr>
+<tr>
+<td>12.1.1.3</td>
+<td>Not Use</td>
+</tr>
+<tr>
+<td>12.1.1.4</td>
+<td>Not Use</td>
+</tr>
+</tbody></table>
+<p>在 R1 上配置动态 NAT 将内网主机的私有地址动态映射到公有地址。</p>
+<pre><code class="language-text">[R1] nat address-group 1 12.1.1.2 12.1.1.4 //配置NAT地址池，包含3个公网地址
+[R1] acl 2000
+[R1-acl-basic-2000] rule 5 permit source 192.168.1.0 0.0.0.255 //配置转换源地址
+[R1-acl-basic-2000] quit
+[R1] interface GigabitEthernet0/0/1
+[R1-GigabitEthernet0/0/1] nat outbound 2000 address-group 1 no-pat //把ACL2000匹配的源地址转换为address-group 1定义的公网地址，no-pat表示不做端口转换。只能实现1：1转换，有多少个公网IP才能满足多少个私网终端上网。
+</code></pre>
+<h3>3、NAPT</h3>
+<p>NAPT：也叫端口 NAT 或 PAT，从地址池中选择地址进行地址转换时不仅转换 IP 地址，同时也会对端口号进行转换，从而实现公有地址与私有地址的 1:N 映射，可以有效提高公有地址利用率，即 1 个公网 IP 地址可以用于多个私网终端的地址转换。</p>
+<p>图 NAPT 原理图：NAT 地址池为 12.1.1.2、12.1.1.3、12.1.1.4，NAT 映射表如下。</p>
+<table>
+<thead>
+<tr>
+<th>私有地址:端口</th>
+<th>公有地址:端口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>192.168.1.1:10321</td>
+<td>12.1.1.2:1025</td>
+</tr>
+<tr>
+<td>192.168.1.2:17087</td>
+<td>12.1.1.2:1026</td>
+</tr>
+</tbody></table>
+<pre><code class="language-text">[R1] nat address-group 1 12.1.1.2 12.1.1.4 //配置NAT地址池，包含3个地址
+[R1] acl 2000
+[R1-acl-basic-2000] rule 5 permit source 192.168.1.0 0.0.0.255 //配置转换源地址
+[R1-acl-basic-2000] quit
+[R1] interface GigabitEthernet0/0/1
+[R1-GigabitEthernet0/0/1] nat outbound 2000 address-group 1 //把ACL2000匹配的源地址转换为address-group 1定义的公网地址，没有关键字no-pat，表示要做端口转换
+</code></pre>
+<blockquote>
+<p>注意：原文注释写作「ACL200」，应为 ACL2000。</p>
+</blockquote>
+<h3>4、Easy IP</h3>
+<p>Easy IP：特殊的 NAPT，Easy IP 没有地址池的概念，使用接口地址作为 NAT 转换的公有地址。Easy IP 适用于不具备固定公网 IP 地址的场景：如通过 DHCP、PPPoE 拨号获取地址的私有网络出口，可以直接使用获取到的动态地址进行转换。</p>
+<p>图 Easy IP 原理图中的 NAT 映射表：</p>
+<table>
+<thead>
+<tr>
+<th>私有地址:端口</th>
+<th>公有地址:端口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>192.168.1.1:10321</td>
+<td>12.1.1.1:1025</td>
+</tr>
+<tr>
+<td>192.168.1.2:17087</td>
+<td>12.1.1.1:1026</td>
+</tr>
+</tbody></table>
+<p>在 R1 上配置 Easy-IP 让内网所有私有地址转换为路由器接口地址 12.1.1.1 访问公网。</p>
+<pre><code class="language-text">[R1] acl 2000
+[R1-acl-basic-2000] rule 5 permit source 192.168.1.0 0.0.0.255
+[R1-acl-basic-2000] quit
+[R1] interface GigabitEthernet0/0/1
+[R1-GigabitEthernet0/0/1] nat outbound 2000
+</code></pre>
+<h3>5、NAT Server</h3>
+<p>NAT Server：将内部服务器映射到公网。在出口路由器 R1 上配置 NAT Server 将内网服务器 192.168.1.10 的 80 端口映射到公有地址 12.1.1.1 的 80 端口，外部互联网用户访问 12.1.1.1 的 80 端口，可以自动跳转访问内部 Web 服务器 192.168.1.10 的 80 端口。NAT Server 主要用于隐藏内部服务器，保障网络安全。</p>
+<p>NAT Server 拓扑：</p>
+<table>
+<thead>
+<tr>
+<th>设备</th>
+<th>接口 / 位置</th>
+<th>IP/掩码</th>
+<th>角色</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web 服务器</td>
+<td>私有网络</td>
+<td>192.168.1.10</td>
+<td>内网服务器</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>内网侧接口</td>
+<td>192.168.1.254</td>
+<td>内网网关</td>
+</tr>
+<tr>
+<td>R1</td>
+<td>G0/0/1（公网侧）</td>
+<td>12.1.1.1</td>
+<td>NAT Server</td>
+</tr>
+<tr>
+<td>外网 PC</td>
+<td>Internet 侧</td>
+<td>12.1.1.254/24</td>
+<td>外部访问者</td>
+</tr>
+</tbody></table>
+<pre><code class="language-text"> Web服务器 192.168.1.10 ──[SW]── 192.168.1.254 [R1/NAT Server] 12.1.1.1 ── Internet ── PC 12.1.1.254/24
+</code></pre>
+<p>图中的 NAT 映射表：</p>
+<table>
+<thead>
+<tr>
+<th>私有地址:端口</th>
+<th>公有地址:端口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>192.168.1.10:80</td>
+<td>12.1.1.1:80</td>
+</tr>
+</tbody></table>
+<p>NAT Server 配置：</p>
+<pre><code class="language-text">[R1] interface GigabitEthernet0/0/1
+[R1-GigabitEthernet0/0/1] ip address 12.1.1.1 24
+[R1-GigabitEthernet0/0/1] nat server protocol tcp global 12.1.1.2 80 inside 192.168.1.10 80 //把内网192.168.1.10的80端口映射到12.1.1.2的80端口
+</code></pre>
+<blockquote>
+<p><strong>提示</strong>：原文此处前后不一致——文字说明和映射表用的公网地址是 12.1.1.1:80，而配置命令和注释用的是 12.1.1.2:80。这里按原图保留命令原样，做题时以题目给出的公网地址为准。</p>
+</blockquote>
+<h2>三、总结</h2>
+<ul>
+<li>静态 NAT：将内网主机的私有地址一对一映射到公有地址。</li>
+<li>动态 NAT：将内网主机的私有地址转换为公网地址池里面的地址。</li>
+<li>NAPT：也叫端口 NAT 或 PAT，从地址池中选择地址进行地址转换时不仅转换 IP 地址，同时也会对端口号进行转换，从而实现公有地址与私有地址的 1:N 映射，可以有效提高公有地址利用率。</li>
+<li>Easy-IP：特殊的 NAPT，Easy IP 没有地址池的概念，使用设备接口地址作为 NAT 转换的公有地址。</li>
+<li>NAT Server：将内部服务器映射到公网，保障服务器安全。</li>
+</ul>
+
+<a class="btn" href="/#/p/1qmffjc1of">在完整博客中阅读（目录、搜索、主题）</a>
+</article>
+<footer>© Cetrp · CC BY-NC-SA 4.0</footer>
+</div>
+</body>
+</html>
