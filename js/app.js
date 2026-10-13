@@ -971,7 +971,7 @@
     t.textContent = msg; t.classList.add('show');
     clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200);
   }
-  function setTitle(sub) { document.title = sub ? `${sub} | ${C.title || C.author}` : (C.title || C.author || 'Notes'); }
+  function setTitle(sub) { document.title = sub ? `${sub} | ${C.title || C.author}` : (C.seoTitle || C.title || C.author || 'Notes'); }
   function animateCards() {
     const cards = $$('.glow-in');
     if (!('IntersectionObserver' in window)) return cards.forEach(c => c.classList.add('visible', 'done'));
