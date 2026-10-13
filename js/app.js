@@ -95,9 +95,12 @@
     return out.join('\n\n');
   }
   // PDF / Word 文档：不下载内容，标题和日期取自文件名（支持 2026-10-13-标题.pdf 这种日期前缀）
-  const DOC_RE = /\.(pdf|docx)$/i;
-  const NOTE_RE = /\.(md|pdf|docx)$/i;
-  const DOC_INFO = { pdf: { name: 'PDF', icon: 'fa-regular fa-file-pdf' }, docx: { name: 'Word', icon: 'fa-regular fa-file-word' } };
+  const DOC_RE = /\.(pdf|docx|xlsx|xlsm|xls|csv)$/i;
+  const NOTE_RE = /\.(md|pdf|docx|xlsx|xlsm|xls|csv)$/i;
+  const SHEET_KINDS = new Set(['xlsx', 'xlsm', 'xls', 'csv']);
+  const DOC_INFO = { pdf: { name: 'PDF', icon: 'fa-regular fa-file-pdf' }, docx: { name: 'Word', icon: 'fa-regular fa-file-word' },
+    xlsx: { name: 'Excel', icon: 'fa-regular fa-file-excel' }, xlsm: { name: 'Excel', icon: 'fa-regular fa-file-excel' },
+    xls: { name: 'Excel', icon: 'fa-regular fa-file-excel' }, csv: { name: 'CSV', icon: 'fa-solid fa-file-csv' } };
   const docIco = p => p.kind ? `<i class="${DOC_INFO[p.kind].icon} doc-ico doc-${p.kind}" title="${DOC_INFO[p.kind].name} 文档"></i>` : '';
   function buildDocPost(path) {
     const rel = path.slice(repo.dir.length + 1);
@@ -638,6 +641,7 @@
     pdfjs: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38',
     jszip: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
     docx: 'https://cdn.jsdelivr.net/npm/docx-preview@0.4.1/dist/docx-preview.min.js',
+    xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
   }, C.docCdn || {});
   const scriptCache = {};
   const loadScript = src => scriptCache[src] || (scriptCache[src] = new Promise((ok, no) => {
@@ -946,8 +950,95 @@
     return docxTocItems(box, await docxHeadingClasses(buf));
   }
 
+  /* ---------- Excel / CSV 预览（SheetJS） ---------- */
+  const SHEET_STEP = 1000;   // 每次显示的行数，超出的点「再显示」
+  const colName = c => { let n = ''; for (c++; c > 0; c = (c - 1) / 26 | 0) n = String.fromCharCode(65 + (c - 1) % 26) + n; return n; };
+  function decodeCsv(buf) {
+    const u8 = new Uint8Array(buf);
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(u8).replace(/^\uFEFF/, ''); }
+    catch { try { return new TextDecoder('gbk').decode(u8); } catch { return new TextDecoder().decode(u8); } }  // 国内常见 GBK 编码的 CSV
+  }
+  async function renderSheet(el, url, kind) {
+    el.innerHTML = `<div class="doc-toolbar sheet-toolbar">
+        <div class="sheet-tabs" role="tablist"></div>
+        <div class="doc-tb-group"><span class="sheet-info"></span>
+          <a href="${url}" download title="下载" aria-label="下载"><i class="fa-solid fa-download"></i></a>
+          <a href="${url}" target="_blank" rel="noopener" title="新窗口打开" aria-label="新窗口打开"><i class="fa-solid fa-up-right-from-square"></i></a>
+        </div>
+      </div>
+      <div class="doc-stage sheet-stage"><div class="doc-loading"><i class="fa-solid fa-spinner fa-spin"></i> 正在加载表格…</div></div>`;
+    const stage = $('.sheet-stage', el), tabs = $('.sheet-tabs', el), info = $('.sheet-info', el);
+    const [buf] = await Promise.all([
+      fetch(url).then(r => { if (!r.ok) throw new Error('文件下载失败 ' + r.status); return r.arrayBuffer(); }),
+      loadScript(DOC_CDN.xlsx),
+    ]);
+    const X = window.XLSX;
+    if (!X?.read) throw new Error('SheetJS 未加载');
+    const wb = kind === 'csv' ? X.read(decodeCsv(buf), { type: 'string', raw: false }) : X.read(new Uint8Array(buf), { type: 'array', cellDates: true, cellNF: true });
+    const hidden = new Set((wb.Workbook?.Sheets || []).map((s, i) => (s.Hidden ? wb.SheetNames[i] : null)).filter(Boolean));
+    const names = wb.SheetNames.filter(n => !hidden.has(n));
+    if (!names.length) throw new Error('没有可显示的工作表');
+
+    const show = name => {
+      const ws = wb.Sheets[name];
+      $$('button', tabs).forEach(b => b.classList.toggle('active', b.dataset.name === name));
+      // 实际数据范围（!ref 经常写成整张表，按单元格重新算）
+      let maxR = -1, maxC = -1;
+      for (const k in ws) { if (k[0] === '!') continue; const a = X.utils.decode_cell(k); if (a.r > maxR) maxR = a.r; if (a.c > maxC) maxC = a.c; }
+      for (const m of ws['!merges'] || []) { if (m.e.r > maxR) maxR = m.e.r; if (m.e.c > maxC) maxC = m.e.c; }
+      if (maxR < 0) { stage.innerHTML = '<div class="doc-msg">空工作表</div>'; info.textContent = ''; return; }
+      const cols = ws['!cols'] || [], rows = ws['!rows'] || [];
+      const visC = []; for (let c = 0; c <= maxC; c++) if (!cols[c]?.hidden) visC.push(c);
+      const visR = []; for (let r = 0; r <= maxR; r++) if (!rows[r]?.hidden) visR.push(r);
+      // 合并单元格：左上角记跨度，其余格跳过
+      const span = new Map(), skip = new Set();
+      for (const m of ws['!merges'] || []) {
+        const rs = visR.filter(r => r >= m.s.r && r <= m.e.r).length, cs = visC.filter(c => c >= m.s.c && c <= m.e.c).length;
+        span.set(m.s.r + ',' + m.s.c, [rs, cs]);
+        for (let r = m.s.r; r <= m.e.r; r++) for (let c = m.s.c; c <= m.e.c; c++) if (r !== m.s.r || c !== m.s.c) skip.add(r + ',' + c);
+      }
+      const width = c => { const w = cols[c]; const px = w?.wpx || (w?.wch ? w.wch * 7 + 10 : w?.width ? w.width * 7 : 0); return px ? Math.min(480, Math.max(40, Math.round(px))) : 0; };
+      const cellHtml = (r, c) => {
+        const key = r + ',' + c;
+        if (skip.has(key)) return '';
+        const cell = ws[X.utils.encode_cell({ r, c })];
+        const sp = span.get(key);
+        const attr = sp ? `${sp[0] > 1 ? ` rowspan="${sp[0]}"` : ''}${sp[1] > 1 ? ` colspan="${sp[1]}"` : ''}` : '';
+        if (!cell) return `<td${attr}></td>`;
+        let txt = cell.w ?? (cell.v instanceof Date ? cell.v.toLocaleDateString() : cell.v ?? '');
+        txt = esc(String(txt));
+        const href = cell.l?.Target;
+        if (href && /^(https?:|mailto:)/i.test(href)) txt = `<a href="${esc(href)}" target="_blank" rel="noopener">${txt || esc(href)}</a>`;
+        const cls = cell.t === 'n' || cell.t === 'd' ? ' class="num"' : cell.t === 'b' ? ' class="bool"' : cell.t === 'e' ? ' class="err"' : '';
+        return `<td${attr}${cls}${cell.f ? ` title="=${esc(cell.f)}"` : ''}>${txt}</td>`;
+      };
+      let shown = 0;
+      stage.innerHTML = `<div class="sheet-wrap"><table class="sheet-table"><colgroup><col class="sheet-rn">${visC.map(c => `<col${width(c) ? ` style="width:${width(c)}px"` : ''}>`).join('')}</colgroup>
+        <thead><tr><th class="sheet-corner"></th>${visC.map(c => `<th>${colName(c)}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`;
+      const tbody = $('tbody', stage);
+      const more = () => {
+        const part = visR.slice(shown, shown + SHEET_STEP);
+        tbody.insertAdjacentHTML('beforeend', part.map(r => `<tr><th>${r + 1}</th>${visC.map(c => cellHtml(r, c)).join('')}</tr>`).join(''));
+        shown += part.length;
+        $('.sheet-more', stage)?.remove();
+        if (shown < visR.length) {
+          stage.insertAdjacentHTML('beforeend', `<button type="button" class="btn-neon sheet-more">再显示 ${Math.min(SHEET_STEP, visR.length - shown)} 行（已显示 ${shown} / ${visR.length}）</button>`);
+          $('.sheet-more', stage).onclick = more;
+        }
+      };
+      more();
+      info.textContent = `${visR.length} 行 × ${visC.length} 列`;
+    };
+    tabs.innerHTML = names.map(n => `<button type="button" role="tab" data-name="${esc(n)}">${esc(n)}</button>`).join('');
+    tabs.hidden = kind === 'csv' || names.length < 2;
+    tabs.addEventListener('click', e => { const b = e.target.closest('button[data-name]'); if (b) show(b.dataset.name); });
+    show(names[0]);
+    return [];
+  }
+
   function renderDoc(el, url, kind) {
     el.classList.add('doc-view');
+    if (SHEET_KINDS.has(kind)) return renderSheet(el, url, kind).catch(e => { docError(el, url, e); return []; });
     const run = kind === 'pdf' ? renderPdf : renderDocx;
     return run(el, url).catch(e => { docError(el, url, e); return []; });
   }
