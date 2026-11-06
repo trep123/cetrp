@@ -28,7 +28,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <header class="top"><a href="/">← 林的博客</a><a href="/#/p/1olrd0q01y">在博客中阅读</a></header>
 <article>
 <h1>Rocky Linux 9.6 部署 OpenStack 2024.2 Dalmatian 双节点</h1>
-<div class="meta"><span>2026-10-10</span><span>Linux / Rocky</span><span>#OpenStack</span><span>#云计算</span><span>#Rocky Linux</span><span>#Dalmatian</span><span>#RDO</span></div>
+<div class="meta"><span>2026-10-10</span><span>Linux / Rocky</span></div>
 <div id="postBody"><p>本文在两台 Rocky Linux 9.6 主机上，通过 <code>centos-release-openstack-dalmatian</code>（RDO）仓库手动部署 OpenStack 2024.2 Dalmatian（具体小版本以实际安装的软件包为准）。节点规划：<code>controller</code>（192.168.1.100）为控制节点，同时承担网络和块存储角色；<code>node1</code>（192.168.1.101）为计算节点。部署的组件包括 MariaDB、RabbitMQ、Memcached、etcd、Keystone、Glance、Placement、Nova、Neutron、Cinder 和 Horizon。</p>
 <blockquote>
 <p><strong>提示</strong>：文中所有密码（<code>ChangeMe123</code>）都是示例，请在部署前统一替换成你自己的密码。</p>

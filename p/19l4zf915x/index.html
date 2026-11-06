@@ -4,17 +4,17 @@
 <meta charset="UTF-8">
 <script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>分解实验03：NAT原理及应用 - 林的博客</title>
-<meta name="description" content="梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。">
+<title>分解实验03：NAT原理及应用 | Huawei - 林的博客</title>
+<meta name="description" content="梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。分类：Network / Huawei。本文收录于林的博客（Cetrp 的技术笔记，涵盖 Linux、华为网络、Windows Server…">
 <meta name="keywords" content="软考,网络工程师,华为,NAT">
 <link rel="canonical" href="https://0x-z.cn/p/19l4zf915x/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="分解实验03：NAT原理及应用">
-<meta property="og:description" content="梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。">
+<meta property="og:description" content="梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。分类：Network / Huawei。本文收录于林的博客（Cetrp 的技术笔记，涵盖 Linux、华为网络、Windows Server…">
 <meta property="og:url" content="https://0x-z.cn/p/19l4zf915x/">
 <meta property="og:site_name" content="林的博客">
 <link rel="icon" href="/img/Cetrp.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"分解实验03：NAT原理及应用","description":"梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。","url":"https://0x-z.cn/p/19l4zf915x/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-11","dateModified":"2026-10-13","keywords":"软考,网络工程师,华为,NAT"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"分解实验03：NAT原理及应用","description":"梳理 RFC1918 私网地址与 NAT 的作用，逐一给出静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种类型在华为路由器上的配置。分类：Network / Huawei。本文收录于林的博客（Cetrp 的技术笔记，涵盖 Linux、华为网络、Windows Server…","url":"https://0x-z.cn/p/19l4zf915x/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-11","dateModified":"2026-10-13","keywords":"软考,网络工程师,华为,NAT"}</script>
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
@@ -28,7 +28,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <header class="top"><a href="/">← 林的博客</a><a href="/#/p/19l4zf915x">在博客中阅读</a></header>
 <article>
 <h1>分解实验03：NAT原理及应用</h1>
-<div class="meta"><span>2026-10-11</span><span>Network / Huawei</span><span>#软考</span><span>#网络工程师</span><span>#华为</span><span>#NAT</span></div>
+<div class="meta"><span>2026-10-11</span><span>Network / Huawei</span></div>
 <div id="postBody"><p>本实验先介绍 NAT 的技术背景和 RFC1918 私网地址段，再在出口路由器 RT1 上依次配置静态 NAT、动态 NAT、NAPT、Easy IP 和 NAT Server 五种地址转换方式。</p>
 <!-- more -->
 

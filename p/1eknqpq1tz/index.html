@@ -28,7 +28,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <header class="top"><a href="/">← 林的博客</a><a href="/#/p/1eknqpq1tz">在博客中阅读</a></header>
 <article>
 <h1>Debian 12 (bookworm) 部署 OpenStack Zed 双节点</h1>
-<div class="meta"><span>2026-10-10</span><span>Linux / Debian</span><span>#OpenStack</span><span>#云计算</span><span>#Debian</span><span>#Debian 12</span><span>#Zed</span><span>#Linux Bridge</span></div>
+<div class="meta"><span>2026-10-10</span><span>Linux / Debian</span></div>
 <div id="postBody"><p>本文记录在两台 Debian 12 (bookworm) 主机上手动部署 OpenStack 的完整过程，OpenStack 版本为 bookworm 官方源自带的 Zed（具体小版本以实际安装的版本为准）。节点规划：<code>controller</code>（192.168.1.100，控制节点：MariaDB、RabbitMQ、Memcached、Keystone、Glance、Placement、Nova 控制组件、Neutron 服务端及各代理、Horizon）和 <code>node1</code>（192.168.1.101，计算节点：nova-compute、neutron-linuxbridge-agent）。两台机器的第二块网卡 <code>ens224</code> 接入 192.168.20.0/24 网段，作为 Provider（外部）网络，网络方案为 ML2 + Linux Bridge。</p>
 <blockquote>
 <p><strong>提示</strong>：文中所有密码（<code>ChangeMe123</code>）都是示例，部署前请统一替换成你自己的强密码。</p>

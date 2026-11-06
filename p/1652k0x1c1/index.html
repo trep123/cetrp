@@ -5,16 +5,16 @@
 <script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dsadd user 命令详解与批量创建 AD 用户 - 林的博客</title>
-<meta name="description" content="dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。">
+<meta name="description" content="dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。 dsadd user 用于在 Active Directory（AD）中创建用户账户。需要 域管理员 （或对目标 OU 有创建权限的账户），在域控制器或已安装 RSAT 工具的计算机上运行。 一、基本语法">
 <meta name="keywords" content="Windows Server,Active Directory,dsadd,批处理">
 <link rel="canonical" href="https://0x-z.cn/p/1652k0x1c1/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="dsadd user 命令详解与批量创建 AD 用户">
-<meta property="og:description" content="dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。">
+<meta property="og:description" content="dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。 dsadd user 用于在 Active Directory（AD）中创建用户账户。需要 域管理员 （或对目标 OU 有创建权限的账户），在域控制器或已安装 RSAT 工具的计算机上运行。 一、基本语法">
 <meta property="og:url" content="https://0x-z.cn/p/1652k0x1c1/">
 <meta property="og:site_name" content="林的博客">
 <link rel="icon" href="/img/Cetrp.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"dsadd user 命令详解与批量创建 AD 用户","description":"dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。","url":"https://0x-z.cn/p/1652k0x1c1/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-10","dateModified":"2026-10-10","keywords":"Windows Server,Active Directory,dsadd,批处理"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"dsadd user 命令详解与批量创建 AD 用户","description":"dsadd user 常用参数速查，以及用 FOR /F 读取 CSV 批量创建 AD 域用户。 dsadd user 用于在 Active Directory（AD）中创建用户账户。需要 域管理员 （或对目标 OU 有创建权限的账户），在域控制器或已安装 RSAT 工具的计算机上运行。 一、基本语法","url":"https://0x-z.cn/p/1652k0x1c1/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2026-10-10","dateModified":"2026-10-10","keywords":"Windows Server,Active Directory,dsadd,批处理"}</script>
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
@@ -28,7 +28,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <header class="top"><a href="/">← 林的博客</a><a href="/#/p/1652k0x1c1">在博客中阅读</a></header>
 <article>
 <h1>dsadd user 命令详解与批量创建 AD 用户</h1>
-<div class="meta"><span>2026-10-10</span><span>WindowsServer / AD</span><span>#Windows Server</span><span>#Active Directory</span><span>#dsadd</span><span>#批处理</span></div>
+<div class="meta"><span>2026-10-10</span><span>WindowsServer / AD</span></div>
 <div id="postBody"><p><code>dsadd user</code> 用于在 Active Directory（AD）中创建用户账户。需要<strong>域管理员</strong>（或对目标 OU 有创建权限的账户），在域控制器或已安装 RSAT 工具的计算机上运行。</p>
 <!-- more -->
 

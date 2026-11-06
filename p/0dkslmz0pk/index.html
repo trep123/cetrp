@@ -5,16 +5,16 @@
 <script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Linux 学习笔记（01）：FTP 搭建、防火墙与常用操作 - 林的博客</title>
-<meta name="description" content="Linux 学习笔记 · FTP 搭建、防火墙与常用操作，内容整理自截图笔记。">
+<meta name="description" content="Linux 学习笔记 · FTP 搭建、防火墙与常用操作，内容整理自截图笔记。 linux搭建ftp服务器 五、Vsftp 安装配置 1、环境需求 服务端系统：CentOS7.6；软件：vsftpd 客户端系统：Windows10；软件：xftp客户端 2、安装 epel 源 3、安装 vsftpd">
 <meta name="keywords" content="Linux,FTP,防火墙">
 <link rel="canonical" href="https://0x-z.cn/p/0dkslmz0pk/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux 学习笔记（01）：FTP 搭建、防火墙与常用操作">
-<meta property="og:description" content="Linux 学习笔记 · FTP 搭建、防火墙与常用操作，内容整理自截图笔记。">
+<meta property="og:description" content="Linux 学习笔记 · FTP 搭建、防火墙与常用操作，内容整理自截图笔记。 linux搭建ftp服务器 五、Vsftp 安装配置 1、环境需求 服务端系统：CentOS7.6；软件：vsftpd 客户端系统：Windows10；软件：xftp客户端 2、安装 epel 源 3、安装 vsftpd">
 <meta property="og:url" content="https://0x-z.cn/p/0dkslmz0pk/">
 <meta property="og:site_name" content="林的博客">
 <link rel="icon" href="/img/Cetrp.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（01）：FTP 搭建、防火墙与常用操作","description":"Linux 学习笔记 · FTP 搭建、防火墙与常用操作，内容整理自截图笔记。","url":"https://0x-z.cn/p/0dkslmz0pk/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,FTP,防火墙"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（01）：FTP 搭建、防火墙与常用操作","description":"Linux 学习笔记 · FTP 搭建、防火墙与常用操作，内容整理自截图笔记。 linux搭建ftp服务器 五、Vsftp 安装配置 1、环境需求 服务端系统：CentOS7.6；软件：vsftpd 客户端系统：Windows10；软件：xftp客户端 2、安装 epel 源 3、安装 vsftpd","url":"https://0x-z.cn/p/0dkslmz0pk/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,FTP,防火墙"}</script>
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
@@ -28,7 +28,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <header class="top"><a href="/">← 林的博客</a><a href="/#/p/0dkslmz0pk">在博客中阅读</a></header>
 <article>
 <h1>Linux 学习笔记（01）：FTP 搭建、防火墙与常用操作</h1>
-<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span><span>#Linux</span><span>#FTP</span><span>#防火墙</span></div>
+<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span></div>
 <div id="postBody"><h2>linux搭建ftp服务器</h2>
 <h3>五、Vsftp 安装配置</h3>
 <p><strong>1、环境需求</strong></p>

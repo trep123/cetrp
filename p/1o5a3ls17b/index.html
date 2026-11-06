@@ -4,17 +4,17 @@
 <meta charset="UTF-8">
 <script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Linux 学习笔记（02）：文件与目录管理 - 林的博客</title>
-<meta name="description" content="Linux 学习笔记 · 文件与目录管理，内容整理自截图笔记。">
+<title>Linux 学习笔记（02）：文件与目录管理 | RedHat - 林的博客</title>
+<meta name="description" content="Linux 学习笔记 · 文件与目录管理，内容整理自截图笔记。 cd命令 相对路径与绝对路径： 在开始目录的切换之前，你必须要先了解一下所谓的『路径(PATH)』，有趣的是：什么是『相对路径』与『绝对路径』？虽然前一章已经稍微针对这个议题提过一次，不过，这里不厌其烦的再次的强调一下！ 绝对路径：路径的">
 <meta name="keywords" content="Linux,命令">
 <link rel="canonical" href="https://0x-z.cn/p/1o5a3ls17b/">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Linux 学习笔记（02）：文件与目录管理">
-<meta property="og:description" content="Linux 学习笔记 · 文件与目录管理，内容整理自截图笔记。">
+<meta property="og:description" content="Linux 学习笔记 · 文件与目录管理，内容整理自截图笔记。 cd命令 相对路径与绝对路径： 在开始目录的切换之前，你必须要先了解一下所谓的『路径(PATH)』，有趣的是：什么是『相对路径』与『绝对路径』？虽然前一章已经稍微针对这个议题提过一次，不过，这里不厌其烦的再次的强调一下！ 绝对路径：路径的">
 <meta property="og:url" content="https://0x-z.cn/p/1o5a3ls17b/">
 <meta property="og:site_name" content="林的博客">
 <link rel="icon" href="/img/Cetrp.png">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（02）：文件与目录管理","description":"Linux 学习笔记 · 文件与目录管理，内容整理自截图笔记。","url":"https://0x-z.cn/p/1o5a3ls17b/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,命令"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","headline":"Linux 学习笔记（02）：文件与目录管理","description":"Linux 学习笔记 · 文件与目录管理，内容整理自截图笔记。 cd命令 相对路径与绝对路径： 在开始目录的切换之前，你必须要先了解一下所谓的『路径(PATH)』，有趣的是：什么是『相对路径』与『绝对路径』？虽然前一章已经稍微针对这个议题提过一次，不过，这里不厌其烦的再次的强调一下！ 绝对路径：路径的","url":"https://0x-z.cn/p/1o5a3ls17b/","author":{"@type":"Person","name":"Cetrp"},"datePublished":"2024-03-27","dateModified":"2026-10-10","keywords":"Linux,命令"}</script>
 <style>body{margin:0;background:#f7f7f9;color:#222;font:16px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 .wrap{max-width:860px;margin:0 auto;padding:24px 18px 60px}header a{color:#555;text-decoration:none}.top{display:flex;justify-content:space-between;gap:12px;font-size:14px;margin-bottom:18px}
 article{background:#fff;border-radius:12px;padding:26px 24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}h1{font-size:1.7em;line-height:1.35;margin:0 0 8px}
@@ -28,7 +28,7 @@ footer{color:#999;font-size:13px;text-align:center;margin-top:28px}</style>
 <header class="top"><a href="/">← 林的博客</a><a href="/#/p/1o5a3ls17b">在博客中阅读</a></header>
 <article>
 <h1>Linux 学习笔记（02）：文件与目录管理</h1>
-<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span><span>#Linux</span><span>#命令</span></div>
+<div class="meta"><span>2024-03-27</span><span>Linux / RedHat</span></div>
 <div id="postBody"><h2>cd命令</h2>
 <p><strong>相对路径与绝对路径：</strong></p>
 <p>在开始目录的切换之前，你必须要先了解一下所谓的『路径(PATH)』，有趣的是：什么是『相对路径』与『绝对路径』？虽然前一章已经稍微针对这个议题提过一次，不过，这里不厌其烦的再次的强调一下！</p>
