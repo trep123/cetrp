@@ -1313,3 +1313,6 @@ body { line-height: 1.75; letter-spacing: .01em; font-feature-settings: "palt" 0
   .post-layout .toc .toc-head > i { display: inline-block; }
   .m-toc-btn { border-color: var(--border-2); color: var(--accent); box-shadow: var(--shadow); }
 }
+
+/* 左栏不显示标签块（2026-11-06）；手机端标签抽屉仍保留 */
+.side-card .tags-block { display: none; }
