@@ -125,9 +125,7 @@
     const dateStr = (typeof meta.date === 'string' && meta.date) || (fm && fm[1]) || '';
     let date = dateStr ? new Date(dateStr.replace(/^(\d{4})-(\d{1,2})-(\d{1,2})/, (_, y, mo, d) => `${y}/${mo}/${d}`)) : null;
     if (date && isNaN(date)) date = null;
-    let tags = meta.tags ?? meta.tag ?? [];
-    if (typeof tags === 'string') tags = tags.split(/[,，\s]+/);
-    tags = [...new Set(tags.map(t => String(t).trim()).filter(Boolean))];
+    const tags = [];   // 标签功能已关闭（2026-11-06），front matter 里的 tags 不再显示
     const folder = rel.split('/').slice(0, -1).join('/');
     // 分类 = 所在目录（自动识别），notes/ 根目录下的文章不属于任何分类
     const category = folder ? folder.split('/') : [];
@@ -453,11 +451,11 @@
     const latest = posts.find(p => p.date);
     const stat = (n, label, cls = '') => `<div class="home-stat${cls}"><b>${n}</b><span>${label}</span></div>`;
     return {
-      stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${stat(tagMap.size, '标签')}${latest ? stat(fmtDate(latest.date), '最近更新', ' is-date') : ''}</div>`,
+      stats: `<div class="home-stats">${stat(posts.length, '文章')}${stat(cats.length, '分类')}${latest ? stat(fmtDate(latest.date), '最近更新', ' is-date') : ''}</div>`,
       categories: cats.length ? `<div class="home-cats">${cats.map(k => `<a class="cat-item" href="${catHref(k)}"><i class="fa-solid fa-folder"></i>${esc(k)}<span class="num">${catMap.get(k).length}</span></a>`).join('')}</div>` : '',
       recent: `<ul class="archive-list home-recent">${posts.slice(0, 5).map(p => `<li><time>${p.date ? fmtDate(p.date) : '--'}</time><a href="${postHref(p)}">${docIco(p)}${esc(p.title)}</a></li>`).join('')}</ul>`,
       hot: VC ? `<ul class="home-hot" id="homeHot">${hotList()}</ul>` : '',
-      tags: `<div class="home-tags">${[...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length).slice(0, 20).map(t => tagChip(t)).join('')}</div>`,
+      tags: '',   // 标签功能已关闭
     };
   }
   function homeIntro() {
@@ -1203,8 +1201,6 @@
         <span class="tree-date">${p.date ? fmtDate(p.date) : ''}</span></a></li>`).join('')}</ul>`;
   }
   function renderTagCloud(active) {
-    const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length || a.localeCompare(b, 'zh'));
-    $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:var(--muted);font-size:13px">暂无标签</span>';
     if (!C.projects?.length) $('#drawerBtn').style.display = 'none';
     // 抽屉内容 = 项目（手机端不再显示标签，2026-11-06）
     $('#drawerBody').innerHTML = $$('#sidebar .side-block:not(.tags-block)').map(b => b.outerHTML).join('') + ($('#social')?.innerHTML ? `<div class="social drawer-social">${$('#social').innerHTML}</div>` : '');
@@ -1274,7 +1270,7 @@
     if (h === '/' || h === '') viewHome(1);
     else if ((m = h.match(/^\/page\/(\d+)$/))) viewHome(+m[1]);
     else if (h === '/archives') viewArchives();
-    else if ((m = h.match(/^\/tag\/(.+)$/))) { activeTag = safeDecode(m[1]); viewTag(activeTag); }
+    else if (/^\/tags?(\/|$)/.test(h)) { history.replaceState(null, '', '#/'); viewHome(1); }   // 旧的标签链接回到首页
     else if (h === '/categories') viewCategories();
     else if ((m = h.match(/^\/category\/(.+)$/))) { activeCat = m[1].split('/').map(safeDecode).join('/'); viewCategory(activeCat); }
     else if ((m = h.match(/^\/p\/([0-9a-z]+)$/))) { const p = byId.get(m[1]); p ? viewPost(p.slug) : viewNotFound(); }
