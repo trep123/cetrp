@@ -14,7 +14,24 @@ const pick = k => (cfg.match(new RegExp(`\\b${k}\\s*:\\s*'([^']*)'`)) || [])[1] 
 const SITE_TITLE = pick('title') || 'Notes';
 const HOME_TITLE = pick('seoTitle') || SITE_TITLE;
 // 文章页标题：太短（< 20 字）时补上作者说明，避免搜索引擎提示“标题过短”
-const pageTitle = t => { const full = `${t} - ${SITE_TITLE}`; return full.length < 20 ? `${full} · ${AUTHOR || SITE_TITLE} 的技术笔记` : full; };
+// 2026-11-06：Bing 提示“标题过短 / 描述过短”，标题补到 30 字以上，描述补到 110 字以上（上限分别约 60、155）
+const TOPICS = 'Linux、华为网络、Windows Server、HCIA 等';
+const clip = (s, n) => s.length > n ? s.slice(0, n - 1) + '…' : s;
+const pageTitle = (t, cat = []) => {
+  let full = `${t} - ${SITE_TITLE}`;
+  if (full.length < 30 && cat.length) full = `${t} | ${cat[cat.length - 1]} - ${SITE_TITLE}`;
+  if (full.length < 30) full += ` · ${AUTHOR || SITE_TITLE} 的技术笔记`;
+  return clip(full, 64);
+};
+const fillDesc = (d, p) => {
+  d = String(d || '').replace(/\s+/g, ' ').trim();
+  const extra = [
+    p.category?.length ? `分类：${p.category.join(' / ')}。` : '',
+    `本文收录于${SITE_TITLE}（${AUTHOR || SITE_TITLE} 的技术笔记，涵盖 ${TOPICS}），可在线阅读、搜索并按目录跳转。`,
+  ];
+  for (const e of extra) if (d.length < 110 && e) d += (d && !/[。.!！?？]$/.test(d) ? '。' : '') + e;
+  return clip(d, 155);
+};
 const AUTHOR = pick('author');
 const LICENSE = pick('license');
 
@@ -71,7 +88,7 @@ function build(path) {
     const title = fm ? fm[4] : file;
     const kind = name.split('.').pop().toUpperCase();
     return { path, slug: rel, title, date: fm ? new Date(`${fm[1]}/${fm[2]}/${fm[3]}`) : null, category: folder, tags: [],
-      description: `${title}（${kind} 文档），分类：${folder.join(' / ')}。`,
+      description: `《${title}》${kind} 文档在线预览，无需下载即可在浏览器中翻页、缩放与按目录跳转，也可下载原文件。`,
       html: `<p>这是一份 ${kind} 文档：<a href="/${encPath(path)}">下载 ${esc(name)}</a>。</p>` };
   }
   const { meta, body } = parseFrontMatter(readFileSync(path, 'utf8'));
@@ -92,7 +109,8 @@ function build(path) {
   const fix = u => /^(https?:|mailto:|#|\/|data:)/i.test(u) ? u : '/' + encPath(posix.normalize(posix.join(base, decodeURI(u))));
   content = content.replace(/(!?\[[^\]]*\]\()([^)\s]+)/g, (_, a, u) => a + fix(u))
     .replace(/(<img[^>]+src=["'])([^"']+)/gi, (_, a, u) => a + fix(u));
-  const description = (typeof meta.description === 'string' && meta.description) || plain(content).slice(0, 150);
+  const md = typeof meta.description === 'string' ? meta.description.trim() : '';
+  const description = md.length >= 80 ? md : (md ? md + ' ' : '') + plain(content).slice(0, 150 - md.length);
   return { path, slug: rel.replace(/\.(md|markdown)$/i, ''), title, date, category: folder, tags, description, html: marked.parse(content) };
 }
 
@@ -114,7 +132,7 @@ function page(p) {
 <meta charset="UTF-8">
 <script src="/protect.js?v=20261013b"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(pageTitle(p.title))}</title>
+<title>${esc(pageTitle(p.title, p.category))}</title>
 <meta name="description" content="${esc(p.description)}">
 ${p.tags.length ? `<meta name="keywords" content="${esc(p.tags.join(','))}">\n` : ''}<link rel="canonical" href="${url}">
 <meta property="og:type" content="article">
@@ -144,7 +162,7 @@ ${p.tags.length ? `<meta name="keywords" content="${esc(p.tags.join(','))}">\n` 
 }
 
 // —— 生成 ——
-const posts = walk(ROOT).map(build).map(p => ({ ...p, id: makeId(p.slug), lastmod: lastmod(p.path) }))
+const posts = walk(ROOT).map(build).map(p => ({ ...p, description: fillDesc(p.description, p), id: makeId(p.slug), lastmod: lastmod(p.path) }))
   .sort((a, b) => (b.date || 0) - (a.date || 0));
 
 rmSync(OUT_DIR, { recursive: true, force: true });
@@ -161,8 +179,9 @@ writeFileSync('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${SITE}/sitemap
 
 // index.html：静态标题、描述、canonical，以及 <noscript> 文章列表
 let idx = readFileSync('index.html', 'utf8');
-const siteDesc = `${SITE_TITLE}：${AUTHOR} 的技术笔记，涵盖 Linux、华为网络、Windows Server、HCIA 等。`;
-idx = idx.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(HOME_TITLE)}</title>`);
+const siteDesc = clip(`${SITE_TITLE}：${AUTHOR} 的个人技术笔记博客，共 ${posts.length} 篇，涵盖 ${TOPICS}。内容包括 Linux 运维与服务部署、华为交换机与路由配置实验、软考网络工程师、Windows Server 与 AD 域，以及世赛和省赛的技术文档，支持在线阅读和全文搜索。`, 155);
+const homeTitle = HOME_TITLE.length < 30 ? clip(`${HOME_TITLE} - ${AUTHOR} 的技术笔记：Linux、华为网络、Windows Server、HCIA`, 64) : HOME_TITLE;
+idx = idx.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(homeTitle)}</title>`);
 idx = idx.replace(/\n?\s*<!-- SEO:HEAD -->[\s\S]*?<!-- \/SEO:HEAD -->/, '');
 idx = idx.replace(/(<title>[\s\S]*?<\/title>)/, `$1\n  <!-- SEO:HEAD -->\n  <meta name="description" content="${esc(siteDesc)}">\n  <link rel="canonical" href="${SITE}/">\n  <!-- /SEO:HEAD -->`);
 const list = `<!-- SEO:LIST --><noscript><h1>${esc(SITE_TITLE)}</h1><ul>${posts.map(p => `<li><a href="/p/${p.id}/">${esc(p.title)}</a></li>`).join('')}</ul></noscript><!-- /SEO:LIST -->`;
