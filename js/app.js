@@ -596,14 +596,17 @@
     items.forEach((it, i) => { if (!it.el.id) it.el.id = 'toc-t-' + i; });
     const hs = items.map(it => it.el);
     const toc = document.createElement('nav');
-    const wide = window.matchMedia ? matchMedia('(min-width: 1280px)').matches : innerWidth >= 1280;
-    toc.className = 'toc' + (wide ? '' : ' collapsed');
-    toc.innerHTML = `<div class="toc-head"><span><i class="fa-solid fa-list-ul"></i> 目录</span><i class="fa-solid fa-chevron-down"></i></div>
+    toc.className = 'toc';
+    // 目录固定在正文右侧；右上角按钮可隐藏（状态记在 localStorage）
+    toc.innerHTML = `<div class="toc-head"><span><i class="fa-solid fa-list-ul"></i> 目录</span><button type="button" class="toc-hide" title="隐藏目录" aria-label="隐藏目录"><i class="fa-solid fa-angles-right"></i></button></div>
       <ul class="toc-list">${items.map(it => `<li class="lv${it.lv}"><a href="#" data-id="${esc(it.el.id)}">${esc(it.text)}</a></li>`).join('')}</ul>`;
     layout.classList.add('has-toc');
-    if (wide) layout.append(toc); else layout.prepend(toc);
+    layout.append(toc);
     document.body.classList.add('has-toc');
-    $('.toc-head', toc).onclick = () => toc.classList.toggle('collapsed');
+    $('.toc-hide', toc).onclick = () => {
+      if (document.body.classList.contains('toc-open')) document.body.classList.remove('toc-open');   // 手机：关闭抽屉
+      else setPanel('toc', true);
+    };
     toc.addEventListener('click', e => {
       const a = e.target.closest('a[data-id]');
       if (!a) return;
@@ -621,18 +624,36 @@
     };
     addEventListener('scroll', onScroll, { passive: true });
     onScroll();
-    // 屏幕宽度跨过 1280px（旋转屏幕 / 拖动窗口）时，目录在侧边与顶部之间切换
-    const mq = window.matchMedia ? matchMedia('(min-width: 1280px)') : null;
-    const onMq = () => {
-      if (!mq) return;
-      if (mq.matches) { layout.append(toc); toc.classList.remove('collapsed'); }
-      else { layout.prepend(toc); toc.classList.add('collapsed'); }
-    };
-    if (mq) { if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq); }
-    tocCleanup = () => {
-      removeEventListener('scroll', onScroll);
-      if (mq) { if (mq.removeEventListener) mq.removeEventListener('change', onMq); else if (mq.removeListener) mq.removeListener(onMq); }
-    };
+    tocCleanup = () => removeEventListener('scroll', onScroll);
+  }
+
+  /* ---------- 左栏 / 右侧目录：可隐藏 ---------- */
+  const PANEL_KEY = { side: 'pixie-hide-side', toc: 'pixie-hide-toc' };
+  function setPanel(which, hide) {
+    document.body.classList.toggle('hide-' + which, hide);
+    try { localStorage.setItem(PANEL_KEY[which], hide ? '1' : ''); } catch {}
+    const b = $('#sideToggle');
+    if (b && which === 'side') { b.title = hide ? '显示左栏' : '隐藏左栏'; b.setAttribute('aria-pressed', String(hide)); }
+  }
+  function initPanels() {
+    let st = {};
+    try { st = { side: localStorage.getItem(PANEL_KEY.side) === '1', toc: localStorage.getItem(PANEL_KEY.toc) === '1' }; } catch {}
+    const bar = $('.top-bar');
+    if (bar && !$('#sideToggle')) {
+      const b = document.createElement('button');
+      b.id = 'sideToggle'; b.type = 'button'; b.className = 'panel-toggle';
+      b.innerHTML = '<i class="fa-solid fa-table-columns"></i>';
+      b.onclick = () => setPanel('side', !document.body.classList.contains('hide-side'));
+      bar.prepend(b);
+    }
+    if (!$('#tocShow')) {
+      const t = document.createElement('button');
+      t.id = 'tocShow'; t.type = 'button'; t.className = 'toc-show'; t.title = '显示目录'; t.setAttribute('aria-label', '显示目录');
+      t.innerHTML = '<i class="fa-solid fa-list-ul"></i><span>目录</span>';
+      t.onclick = () => setPanel('toc', false);
+      document.body.append(t);
+    }
+    setPanel('side', !!st.side); setPanel('toc', !!st.toc);
   }
 
   /* ---------- PDF / Word 预览（PDF.js + docx-preview，按需从 CDN 加载） ---------- */
@@ -1471,6 +1492,7 @@
       bt.onclick = () => scrollTo({ top: 0, behavior: 'smooth' });
     } else $('#backTop').remove();
     renderSidebar();
+    try { initPanels(); } catch (e) { console.warn('panels', e); }
     try {
       await Promise.all([loadPosts(), loadHome()]);
     } catch (e) {
