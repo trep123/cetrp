@@ -1205,9 +1205,9 @@
   function renderTagCloud(active) {
     const tags = [...tagMap.keys()].sort((a, b) => tagMap.get(b).length - tagMap.get(a).length || a.localeCompare(b, 'zh'));
     $('#tagCloud').innerHTML = tags.length ? tags.map(t => tagChip(t, t === active)).join('') : '<span style="color:var(--muted);font-size:13px">暂无标签</span>';
-    if (!tags.length && !C.projects?.length) $('#drawerBtn').style.display = 'none';
-    // 抽屉内容 = 标签 + 项目
-    $('#drawerBody').innerHTML = $$('#sidebar .side-block').map(b => b.outerHTML).join('') + ($('#social')?.innerHTML ? `<div class="social drawer-social">${$('#social').innerHTML}</div>` : '');
+    if (!C.projects?.length) $('#drawerBtn').style.display = 'none';
+    // 抽屉内容 = 项目（手机端不再显示标签，2026-11-06）
+    $('#drawerBody').innerHTML = $$('#sidebar .side-block:not(.tags-block)').map(b => b.outerHTML).join('') + ($('#social')?.innerHTML ? `<div class="social drawer-social">${$('#social').innerHTML}</div>` : '');
   }
   function openDrawer() { document.body.classList.add('drawer-open'); $('#drawer').setAttribute('aria-hidden', 'false'); }
   function closeDrawer() { document.body.classList.remove('drawer-open'); $('#drawer').setAttribute('aria-hidden', 'true'); }
@@ -1383,7 +1383,7 @@
     const tab = document.createElement('nav');
     tab.id = 'mTab'; tab.className = 'm-tab';
     const items = (C.menu || []).slice(0, 4).map(m => `<a href="${esc(m.url)}"${/^https?:/.test(m.url) ? ' target="_blank" rel="noopener"' : ''}><i class="fa-solid ${icon(m.url)}"></i><span>${esc(m.name)}</span></a>`);
-    if (tagMap.size || C.projects?.length) items.push('<button type="button" id="mTagBtn"><i class="fa-solid fa-tags"></i><span>标签</span></button>');
+    if (C.projects?.length) items.push(`<button type="button" id="mTagBtn"><i class="fa-solid fa-cubes"></i><span>${esc(C.projectsTitle ? '项目' : '更多')}</span></button>`);
     tab.innerHTML = items.join('');
     tab.style.setProperty('--n', items.length);
     document.body.appendChild(tab);
