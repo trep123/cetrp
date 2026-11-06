@@ -131,7 +131,7 @@ ${p.tags.length ? `<meta name="keywords" content="${esc(p.tags.join(','))}">\n` 
 <header class="top"><a href="/">← ${esc(SITE_TITLE)}</a><a href="/#/p/${p.id}">在博客中阅读</a></header>
 <article>
 <h1>${esc(p.title)}</h1>
-<div class="meta">${p.date ? `<span>${fmtDate(p.date)}</span>` : ''}${p.category.length ? `<span>${esc(p.category.join(' / '))}</span>` : ''}${p.tags.map(t => `<span>#${esc(t)}</span>`).join('')}</div>
+<div class="meta">${p.date ? `<span>${fmtDate(p.date)}</span>` : ''}${p.category.length ? `<span>${esc(p.category.join(' / '))}</span>` : ''}</div>
 <div id="postBody">${p.html}</div>
 <a class="btn" href="/#/p/${p.id}">在完整博客中阅读（目录、搜索、主题）</a>
 </article>
